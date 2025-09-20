@@ -292,15 +292,25 @@ class WorkoutHistoryActivity : AppCompatActivity() {
             val dateFormat = SimpleDateFormat("MMM dd, HH:mm", Locale.getDefault())
             workoutDate.text = dateFormat.format(Date(workout.date))
 
-            val completionPercentage = (workout.count.toFloat() / workout.targetCount * 100).toInt()
-            completionStatus.text = "$completionPercentage%"
+            // Thay đoạn cũ bằng đoạn này trong WorkoutHistoryAdapter.getView(...)
+            val completionPercentageDouble = if (workout.targetCount > 0) {
+                // Tính với double, giới hạn tối đa 100 và tối thiểu 0
+                val p = (workout.count.toDouble() / workout.targetCount.toDouble()) * 100.0
+                p.coerceIn(0.0, 100.0)
+            } else {
+                0.0
+            }
+// Hiển thị không có số thập phân (hoặc dùng "%.1f%%" nếu muốn 1 chữ số thập phân)
+            completionStatus.text = String.format(Locale.getDefault(), "%.0f%%", completionPercentageDouble)
 
-            // Set color based on completion
+// Dùng toInt() cho so sánh màu
+            val completionPercentageInt = completionPercentageDouble.toInt()
             when {
-                completionPercentage >= 100 -> completionStatus.setTextColor(Color.parseColor("#4CAF50"))
-                completionPercentage >= 75 -> completionStatus.setTextColor(Color.parseColor("#FF9800"))
+                completionPercentageInt >= 100 -> completionStatus.setTextColor(Color.parseColor("#4CAF50"))
+                completionPercentageInt >= 75 -> completionStatus.setTextColor(Color.parseColor("#FF9800"))
                 else -> completionStatus.setTextColor(Color.parseColor("#F44336"))
             }
+
 
             caloriesBurned.text = "${workout.caloriesBurned.toInt()} cal"
 
