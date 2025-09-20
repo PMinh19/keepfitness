@@ -52,7 +52,8 @@
                         android:layout_width="60dp"
                         android:layout_height="60dp"
                         android:src="@drawable/ic_fitness_logo"
-                        android:tint="@android:color/white" />
+                        app:tint="@android:color/white" />
+
 
                 </LinearLayout>
 

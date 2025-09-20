@@ -3,8 +3,10 @@ package com.example.keepyfitness
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.widget.LinearLayout
+import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -13,7 +15,6 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.example.keepyfitness.utils.WeatherHelper
-import android.widget.Toast
 
 class HomeScreen : AppCompatActivity() {
 
@@ -21,13 +22,19 @@ class HomeScreen : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
         setContentView(R.layout.activity_home_screen)
 
+        // Áp padding cho hệ thống bar
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
+            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
+            insets
+        }
+
         // Kiểm tra quyền vị trí
-        if (ContextCompat.checkSelfPermission(
-                this,
-                Manifest.permission.ACCESS_FINE_LOCATION
-            ) != PackageManager.PERMISSION_GRANTED
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+            != PackageManager.PERMISSION_GRANTED
         ) {
             ActivityCompat.requestPermissions(
                 this,
@@ -35,31 +42,54 @@ class HomeScreen : AppCompatActivity() {
                 LOCATION_PERMISSION_REQUEST
             )
         } else {
-            // Có quyền rồi thì gọi luôn
             showWeatherSuggestion()
         }
 
-        // các nút khác ...
+        // Các nút LinearLayout
+        val btnStartWorkout = findViewById<LinearLayout>(R.id.btnStartWorkout)
+        btnStartWorkout.setOnClickListener {
+            startActivity(Intent(this, ExerciseListActivity::class.java))
+        }
+
+        val btnScheduleWorkout = findViewById<LinearLayout>(R.id.btnScheduleWorkout)
+        btnScheduleWorkout.setOnClickListener {
+            startActivity(Intent(this, ScheduleListActivity::class.java))
+        }
+
+        val btnViewHistory = findViewById<LinearLayout>(R.id.btnViewHistory)
+        btnViewHistory.setOnClickListener {
+            startActivity(Intent(this, WorkoutHistoryActivity::class.java))
+        }
+
+        // Yêu cầu quyền thông báo cho Android 13+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED
+            ) {
+                ActivityCompat.requestPermissions(
+                    this,
+                    arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                    1001
+                )
+            }
+        }
     }
 
-    // ✅ Xử lý khi user bấm Allow / Deny
     override fun onRequestPermissionsResult(
         requestCode: Int,
         permissions: Array<out String>,
         grantResults: IntArray
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-
         if (requestCode == LOCATION_PERMISSION_REQUEST) {
             if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                // Người dùng vừa bấm Allow → gọi lại suggest
                 showWeatherSuggestion()
             } else {
-                // Người dùng từ chối
                 AlertDialog.Builder(this)
                     .setTitle("Quyền vị trí bị từ chối")
                     .setMessage("Không thể lấy gợi ý tập luyện theo thời tiết nếu không cấp quyền vị trí.")
                     .setPositiveButton("OK", null)
+                    .setCancelable(true) // cho phép đóng dialog
                     .show()
             }
         }
@@ -74,6 +104,7 @@ class HomeScreen : AppCompatActivity() {
                         .setTitle("Gợi ý tập luyện hôm nay 🌦️")
                         .setMessage(suggestion)
                         .setPositiveButton("OK", null)
+                        .setCancelable(true) // ✅ đảm bảo có thể đóng dialog
                         .show()
                 }
             }
@@ -82,5 +113,4 @@ class HomeScreen : AppCompatActivity() {
             Toast.makeText(this, "Không thể lấy gợi ý thời tiết", Toast.LENGTH_SHORT).show()
         }
     }
-
 }
