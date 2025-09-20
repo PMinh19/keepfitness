@@ -1,0 +1,294 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/home_gradient_background">
+
+    <!-- Header Section -->
+    <androidx.cardview.widget.CardView
+        android:id="@+id/headerCard"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="24dp"
+        android:layout_marginEnd="16dp"
+        app:cardCornerRadius="20dp"
+        app:cardElevation="0dp"
+        app:cardBackgroundColor="@android:color/white"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:padding="20dp"
+            android:gravity="center_vertical">
+
+            <!-- Schedule Icon -->
+            <androidx.cardview.widget.CardView
+                android:layout_width="60dp"
+                android:layout_height="60dp"
+                app:cardCornerRadius="30dp"
+                app:cardElevation="0dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="@drawable/schedule_gradient"
+                    android:gravity="center">
+
+                    <ImageView
+                        android:layout_width="32dp"
+                        android:layout_height="32dp"
+                        android:src="@android:drawable/ic_menu_my_calendar"
+                        app:tint="@android:color/white" />
+
+                </LinearLayout>
+
+            </androidx.cardview.widget.CardView>
+
+            <!-- Title Text -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="16dp"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="My Schedules"
+                    android:textSize="24sp"
+                    android:textStyle="bold"
+                    android:textColor="#2E7D32" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Manage your workout plans"
+                    android:textSize="14sp"
+                    android:textColor="#666666" />
+
+            </LinearLayout>
+
+            <!-- Add Schedule FAB-style button -->
+            <androidx.cardview.widget.CardView
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                app:cardCornerRadius="24dp"
+                app:cardElevation="0dp"
+                app:cardBackgroundColor="#4CAF50">
+
+                <ImageView
+                    android:id="@+id/btnAddSchedule"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:layout_gravity="center"
+                    android:src="@android:drawable/ic_input_add"
+                    app:tint="@android:color/white"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="Add Schedule" />
+
+            </androidx.cardview.widget.CardView>
+
+        </LinearLayout>
+
+    </androidx.cardview.widget.CardView>
+
+    <!-- Quick Stats Section -->
+    <LinearLayout
+        android:id="@+id/statsSection"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="16dp"
+        android:layout_marginEnd="16dp"
+        android:orientation="horizontal"
+        app:layout_constraintTop_toBottomOf="@id/headerCard"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <!-- Total Schedules -->
+        <androidx.cardview.widget.CardView
+            android:layout_width="0dp"
+            android:layout_height="80dp"
+            android:layout_weight="1"
+            android:layout_marginEnd="8dp"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="0dp"
+            app:cardBackgroundColor="#E8F5E8">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:padding="12dp">
+
+                <TextView
+                    android:id="@+id/totalSchedulesCount"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="0"
+                    android:textSize="24sp"
+                    android:textStyle="bold"
+                    android:textColor="#2E7D32" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Total Plans"
+                    android:textSize="12sp"
+                    android:textColor="#666666" />
+
+            </LinearLayout>
+
+        </androidx.cardview.widget.CardView>
+
+        <!-- Active Today -->
+        <androidx.cardview.widget.CardView
+            android:layout_width="0dp"
+            android:layout_height="80dp"
+            android:layout_weight="1"
+            android:layout_marginStart="8dp"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="0dp"
+            app:cardBackgroundColor="#FFF3E0">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:padding="12dp">
+
+                <TextView
+                    android:id="@+id/todaySchedulesCount"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="0"
+                    android:textSize="24sp"
+                    android:textStyle="bold"
+                    android:textColor="#FF9800" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Today"
+                    android:textSize="12sp"
+                    android:textColor="#666666" />
+
+            </LinearLayout>
+
+        </androidx.cardview.widget.CardView>
+
+    </LinearLayout>
+
+    <!-- Schedules List Container -->
+    <androidx.cardview.widget.CardView
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="16dp"
+        app:cardCornerRadius="20dp"
+        app:cardElevation="0dp"
+        app:cardBackgroundColor="@android:color/white"
+        app:layout_constraintTop_toBottomOf="@id/statsSection"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:padding="20dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="📋 Your Workout Schedules"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:textColor="#2E7D32"
+                android:layout_marginBottom="16dp" />
+
+            <!-- Empty State -->
+            <LinearLayout
+                android:id="@+id/emptyStateLayout"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:visibility="gone">
+
+                <androidx.cardview.widget.CardView
+                    android:layout_width="100dp"
+                    android:layout_height="100dp"
+                    app:cardCornerRadius="50dp"
+                    app:cardElevation="0dp"
+                    android:layout_marginBottom="24dp"
+                    app:cardBackgroundColor="#F5F5F5">
+
+                    <ImageView
+                        android:layout_width="60dp"
+                        android:layout_height="60dp"
+                        android:layout_gravity="center"
+                        android:src="@android:drawable/ic_menu_my_calendar"
+                        app:tint="#BDBDBD" />
+
+                </androidx.cardview.widget.CardView>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="No schedules yet"
+                    android:textSize="20sp"
+                    android:textStyle="bold"
+                    android:textColor="#666666"
+                    android:layout_marginBottom="8dp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Create your first workout schedule to get started!"
+                    android:textSize="16sp"
+                    android:textColor="#999999"
+                    android:gravity="center"
+                    android:layout_marginBottom="24dp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnCreateFirstSchedule"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Create Schedule"
+                    android:backgroundTint="#4CAF50"
+                    android:textColor="@android:color/white"
+                    app:cornerRadius="20dp"
+                    app:icon="@android:drawable/ic_input_add"
+                    app:iconTint="@android:color/white" />
+
+            </LinearLayout>
+
+            <!-- Schedules ListView -->
+            <ListView
+                android:id="@+id/scheduleListView"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:divider="@android:color/transparent"
+                android:dividerHeight="12dp"
+                android:scrollbars="vertical"
+                android:fadingEdge="vertical"
+                android:requiresFadingEdge="vertical" />
+
+        </LinearLayout>
+
+    </androidx.cardview.widget.CardView>
+
+</androidx.constraintlayout.widget.ConstraintLayout>
