@@ -173,7 +173,7 @@ class MainActivity : AppCompatActivity(), OnImageAvailableListener {
         // Initialize components
         formCorrector = FormCorrector()
         voiceCoach = VoiceCoach(this)
-        voiceCoach.speak("Bắt đầu tập nào!") // nói ngay lúc khởi động
+
 
 
         poseOverlay = findViewById(R.id.po)
@@ -576,7 +576,7 @@ class MainActivity : AppCompatActivity(), OnImageAvailableListener {
                 detectPushUp(results)
                 currentCount = pushUpCount
                 if (pushUpCount > oldCount) {
-                    voiceCoach.announceCount(pushUpCount, "push ups")
+                    voiceCoach.announceCount(pushUpCount, "tập chống đẩy")
                     voiceCoach.announceProgress(pushUpCount, targetCount)
                 }
                 runOnUiThread { countTV.text = pushUpCount.toString() }
@@ -586,7 +586,7 @@ class MainActivity : AppCompatActivity(), OnImageAvailableListener {
                 detectSquat(results)
                 currentCount = squatCount
                 if (squatCount > oldCount) {
-                    voiceCoach.announceCount(squatCount, "squats")
+                    voiceCoach.announceCount(squatCount, "squat")
                     voiceCoach.announceProgress(squatCount, targetCount)
                 }
                 runOnUiThread { countTV.text = squatCount.toString() }
@@ -596,7 +596,7 @@ class MainActivity : AppCompatActivity(), OnImageAvailableListener {
                 detectJumpingJack(results)
                 currentCount = jumpingJackCount
                 if (jumpingJackCount > oldCount) {
-                    voiceCoach.announceCount(jumpingJackCount, "jumping jacks")
+                    voiceCoach.announceCount(jumpingJackCount, "Dang tay chân Cardio")
                     voiceCoach.announceProgress(jumpingJackCount, targetCount)
                 }
                 runOnUiThread { countTV.text = jumpingJackCount.toString() }
@@ -606,15 +606,21 @@ class MainActivity : AppCompatActivity(), OnImageAvailableListener {
                 detectPlankToDownwardDog(results)
                 currentCount = plankDogCount
                 if (plankDogCount > oldCount) {
-                    voiceCoach.announceCount(plankDogCount, "plank transitions")
+                    voiceCoach.announceCount(plankDogCount, "Downward Dog")
                     voiceCoach.announceProgress(plankDogCount, targetCount)
                 }
                 runOnUiThread { countTV.text = plankDogCount.toString() }
             }
             5 -> {
+                val oldCount = treePoseCount
                 detectTreePose(results)
-                runOnUiThread { countTV.text = "${treePoseHoldTime}s" }
+                if (treePoseCount > oldCount) {
+                    voiceCoach.announceCount(treePoseCount, "đứng một chân")
+                    voiceCoach.announceProgress(treePoseCount, targetCount)
+                }
+                runOnUiThread { countTV.text = treePoseCount.toString() }
             }
+
 
         }
 

@@ -17,7 +17,7 @@ class VoiceCoach(private val context: Context) : TextToSpeech.OnInitListener {
 
     // Throttling để tránh spam voice
     private var lastSpeechTime = 0L
-    private val speechCooldown = 3000L // 3 giây
+    private val speechCooldown = 800L
     private var lastFormFeedbackTime = 0L
     private val formFeedbackCooldown = 5000L // 5 giây
 
@@ -66,7 +66,7 @@ class VoiceCoach(private val context: Context) : TextToSpeech.OnInitListener {
         lastSpeechTime = currentTime
 
         textToSpeech?.setLanguage(Locale("vi", "VN"))
-        textToSpeech?.speak(message, TextToSpeech.QUEUE_FLUSH, null, null)
+        textToSpeech?.speak(message, TextToSpeech.QUEUE_ADD, null, null)
     }
 
     fun speak(message: String) {
