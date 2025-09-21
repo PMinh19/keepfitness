@@ -1,4 +1,5 @@
 package com.example.keepyfitness
+import kotlin.math.abs
 
 import android.content.pm.PackageManager
 import android.hardware.camera2.CameraAccessException
@@ -60,12 +61,12 @@ class MainActivity : AppCompatActivity(), OnImageAvailableListener {
     private var formQualityProgress: ProgressBar? = null
     private var formQualityText: TextView? = null
     private var lastFeedbackTime = 0L
-    private val feedbackCooldown = 5000L // Tăng từ 3s lên 5s
+    private val feedbackCooldown = 3000L // Tăng từ 3s lên 5s
 
     // Voice Coach
     private lateinit var voiceCoach: VoiceCoach
     private var lastMotivationTime = 0L
-    private val motivationInterval = 45000L // Tăng từ 30s lên 45s để giảm frequency
+    private val motivationInterval = 15000L // Tăng từ 30s lên 45s để giảm frequency
     private var workoutAnnounced = false
 
     // Timer variables
@@ -92,9 +93,11 @@ class MainActivity : AppCompatActivity(), OnImageAvailableListener {
 
     // AGGRESSIVE THROTTLING để giảm lag mạnh
     private var lastProcessTime = 0L
-    private val processInterval = 300L // Tăng từ 200ms lên 300ms (~3.3 FPS)
+    private val processInterval = 120L // ~6–7 FPS
+    private val frameSkipInterval = 2  // xử lý 1/2 frames
+    // Tăng từ 200ms lên 300ms (~3.3 FPS)
     private var frameSkipCounter = 0
-    private val frameSkipInterval = 5 // Tăng từ 3 lên 5 - chỉ xử lý 1/5 frames
+    //private val frameSkipInterval = 5 // Tăng từ 3 lên 5 - chỉ xử lý 1/5 frames
 
     // Exercise detection variables
     var pushUpCount = 0
@@ -106,7 +109,43 @@ class MainActivity : AppCompatActivity(), OnImageAvailableListener {
     var isInStartPosition = false
     var plankDogCount = 0
     var isInPlank = false
+    var treePoseHoldTime = 0L
+    var isInTreePose = false
+    // ==== Debounce / cooldown helpers ====
+    private val COUNT_COOLDOWN_MS = 800L // khoảng thời gian tối thiểu giữa 2 lần count cùng loại
+    private val REQUIRED_CONSECUTIVE = 2
+    // Push-up
+    private var pushUpState = 0 // 0=IDLE, 1=DOWN_CONFIRMED, 2=COOLDOWN
+    private var pushUpConsec = 0
+    private var lastPushUpCountTime = 0L
+    private var pushDownConsec = 0
 
+    // Squat
+    private var squatState = 0
+    private var squatConsec = 0
+    private var lastSquatCountTime = 0L
+    private var squatDownConsec = 0
+
+    // Jumping jack
+    private var jjState = 0
+    private var jjUpConsec = 0
+    private var jjDownConsec = 0
+    private var lastJJCountTime = 0L
+
+    // Plank -> Downward Dog
+    private var plankDogState = 0
+    private var plankDogConsec = 0
+    private var lastPlankDogCountTime = 0L
+
+
+    // Tree pose (you already added)
+    private var lastTreePoseStart: Long = 0L
+
+    var treePoseCount = 0
+
+    private var treePoseHoldStart: Long = 0
+    private val TREE_HOLD_THRESHOLD_MS = 3000L
+    private var lastTreePoseCountTime: Long = 0L
     @Suppress("DEPRECATION")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -123,7 +162,7 @@ class MainActivity : AppCompatActivity(), OnImageAvailableListener {
             intent.getSerializableExtra("data") as? ExerciseDataModel
                 ?: throw IllegalArgumentException("Exercise data is required")
         } catch (e: Exception) {
-            Log.e("MainActivity", "Error getting exercise data: ${e.message}")
+            Log.e("MainActivity", "Lỗi khi lấy dữ liệu bài tập: ${e.message}")
             finish()
             return
         }
@@ -134,6 +173,8 @@ class MainActivity : AppCompatActivity(), OnImageAvailableListener {
         // Initialize components
         formCorrector = FormCorrector()
         voiceCoach = VoiceCoach(this)
+        voiceCoach.speak("Bắt đầu tập nào!") // nói ngay lúc khởi động
+
 
         poseOverlay = findViewById(R.id.po)
         countTV = findViewById(R.id.textView)
@@ -195,7 +236,7 @@ class MainActivity : AppCompatActivity(), OnImageAvailableListener {
 
     private fun setupStopWorkoutButton() {
         stopWorkoutCard.setOnClickListener {
-            Log.d("MainActivity", "Stop workout button clicked")
+            Log.d("MainActivity", "Nút dừng tập đã được nhấn.")
             stopWorkout()
         }
 
@@ -205,7 +246,7 @@ class MainActivity : AppCompatActivity(), OnImageAvailableListener {
     }
 
     private fun stopWorkout() {
-        Log.d("MainActivity", "Stopping workout...")
+        Log.d("MainActivity", "Đang ngừng tập luyện...")
         stopTimer()
 
         // Get current count based on exercise type
@@ -328,7 +369,7 @@ class MainActivity : AppCompatActivity(), OnImageAvailableListener {
             },
             this,
             R.layout.camera_fragment,
-            Size(640, 480)
+            Size(320, 240)
         )
         camera2Fragment.setCamera(cameraId)
         supportFragmentManager.beginTransaction().replace(R.id.container, camera2Fragment).commit()
@@ -360,96 +401,127 @@ class MainActivity : AppCompatActivity(), OnImageAvailableListener {
     override fun onImageAvailable(reader: ImageReader) {
         if (previewWidth == 0 || previewHeight == 0) return
 
-        // SKIP FRAMES để tăng performance
-        frameSkipCounter++
-        if (frameSkipCounter % frameSkipInterval != 0) {
-            reader.acquireLatestImage()?.close()
-            return
-        }
-
-        // THROTTLE processing để tránh overload
-        val currentTime = System.currentTimeMillis()
-        if (currentTime - lastProcessTime < processInterval) {
-            reader.acquireLatestImage()?.close()
-            return
-        }
-        lastProcessTime = currentTime
-
-        if (rgbBytes == null) {
-            rgbBytes = IntArray(previewWidth * previewHeight)
-        }
+        val image = reader.acquireLatestImage() ?: return
         try {
-            val image = reader.acquireLatestImage() ?: return
-            if (isProcessingFrame) {
+            // Skip frames
+            frameSkipCounter++
+            if (frameSkipCounter % frameSkipInterval != 0) {
                 image.close()
                 return
             }
-            isProcessingFrame = true
+
+            // Throttle
+            val currentTime = System.currentTimeMillis()
+            if (currentTime - lastProcessTime < processInterval) {
+                image.close()
+                return
+            }
+            lastProcessTime = currentTime
+
+            synchronized(this) {
+                if (isProcessingFrame) {
+                    image.close()
+                    return
+                }
+                isProcessingFrame = true
+            }
+
             val planes = image.planes
-            fillBytes(planes, yuvBytes)
+            fillBytes(planes, yuvBytes) // dùng hàm gốc của bạn
             yRowStride = planes[0].rowStride
             val uvRowStride = planes[1].rowStride
             val uvPixelStride = planes[1].pixelStride
+
+            // Đảm bảo buffer đúng kích thước
+            val needed = previewWidth * previewHeight
+            if (rgbBytes == null || rgbBytes!!.size != needed) {
+                rgbBytes = IntArray(needed)
+            }
+
+            // Reuse hoặc tạo bitmap mới nếu cần
+            if (rgbFrameBitmap == null ||
+                rgbFrameBitmap?.width != previewWidth ||
+                rgbFrameBitmap?.height != previewHeight
+            ) {
+                try {
+                    rgbFrameBitmap?.recycle()
+                } catch (_: Exception) { }
+                rgbFrameBitmap = Bitmap.createBitmap(
+                    previewWidth, previewHeight,
+                    Bitmap.Config.ARGB_8888
+                )
+            }
+
+            // Kiểm tra yuvBytes trước khi convert
+            if (yuvBytes[0] == null || yuvBytes[1] == null || yuvBytes[2] == null) {
+                Log.w("MainActivity", "yuvBytes chưa sẵn sàng, skip frame")
+                image.close()
+                isProcessingFrame = false
+                return
+            }
+
             imageConverter = Runnable {
                 ImageUtils.convertYUV420ToARGB8888(
-                    yuvBytes[0]!!,
-                    yuvBytes[1]!!,
-                    yuvBytes[2]!!,
-                    previewWidth,
-                    previewHeight,
-                    yRowStride,
-                    uvRowStride,
-                    uvPixelStride,
+                    yuvBytes[0]!!, yuvBytes[1]!!, yuvBytes[2]!!,
+                    previewWidth, previewHeight,
+                    yRowStride, uvRowStride, uvPixelStride,
                     rgbBytes!!
                 )
             }
+
             postInferenceCallback = Runnable {
-                image.close()
+                try { image.close() } catch (_: Exception) { }
                 isProcessingFrame = false
             }
+
             processImage()
         } catch (e: Exception) {
-            Log.e("MainActivity", "Error processing image: ${e.message}")
-            postInferenceCallback?.run()
+            Log.e("MainActivity", "Exception onImageAvailable: ${e.message}", e)
+            try { image.close() } catch (_: Exception) { }
+            isProcessingFrame = false
         }
     }
 
     private fun processImage() {
-        imageConverter!!.run()
-        rgbFrameBitmap = Bitmap.createBitmap(previewWidth, previewHeight, Bitmap.Config.ARGB_8888)
-        rgbFrameBitmap?.setPixels(rgbBytes!!, 0, previewWidth, 0, 0, previewWidth, previewHeight)
+        try {
+            imageConverter?.run()
 
-        val inputImage = InputImage.fromBitmap(rgbFrameBitmap!!, sensorOrientation)
+            rgbFrameBitmap?.setPixels(
+                rgbBytes!!, 0, previewWidth,
+                0, 0, previewWidth, previewHeight
+            )
 
-        poseDetector.process(inputImage)
-            .addOnSuccessListener { results ->
-                poseOverlay.setPose(results)
+            val inputImage = InputImage.fromBitmap(rgbFrameBitmap!!, sensorOrientation)
 
-                // START TIMER KHI DETECT POSE ĐẦU TIÊN
-                if (!timerStarted) {
-                    startTimer()
+            poseDetector.process(inputImage)
+                .addOnSuccessListener { results ->
+                    // Giữ nguyên logic gốc của bạn
+                    poseOverlay.setPose(results)
+
+                    if (!timerStarted) startTimer()
+                    if (!workoutAnnounced) {
+                        voiceCoach.announceWorkoutStart(exerciseDataModel.title, targetCount)
+                        workoutAnnounced = true
+                    }
+
+                    if (frameSkipCounter % 6 == 0) analyzeFormAndGiveFeedback(results)
+                    detectAndCountExercise(results)
                 }
-
-                // Announce workout start (once)
-                if (!workoutAnnounced) {
-                    voiceCoach.announceWorkoutStart(exerciseDataModel.title, targetCount)
-                    workoutAnnounced = true
+                .addOnFailureListener { e ->
+                    Log.e("PoseDetection", "Failed to process image", e)
                 }
-
-                // GIẢM TẦN SUẤT form analysis để tăng performance
-                if (frameSkipCounter % 6 == 0) { // Chỉ analyze form mỗi 6 frames
-                    analyzeFormAndGiveFeedback(results)
+                .addOnCompleteListener {
+                    postInferenceCallback?.run()
                 }
-
-                // Exercise detection và counting - GIỮ NGUYÊN tần suất cho accuracy
-                detectAndCountExercise(results)
-            }
-            .addOnFailureListener { e ->
-                Log.e("PoseDetection", "Failed to process image", e)
-            }
-
-        postInferenceCallback!!.run()
+        } catch (oom: OutOfMemoryError) {
+            Log.e("MainActivity", "OOM in processImage: ${oom.message}")
+            postInferenceCallback?.run()
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Exception in processImage: ${e.message}", e)
+            postInferenceCallback?.run()
+        }
     }
+
 
     // TÁCH RIÊNG form analysis để optimize
     private fun analyzeFormAndGiveFeedback(results: Pose) {
@@ -539,6 +611,11 @@ class MainActivity : AppCompatActivity(), OnImageAvailableListener {
                 }
                 runOnUiThread { countTV.text = plankDogCount.toString() }
             }
+            5 -> {
+                detectTreePose(results)
+                runOnUiThread { countTV.text = "${treePoseHoldTime}s" }
+            }
+
         }
 
         // Motivational messages - GIẢM TẦN SUẤT
@@ -559,147 +636,201 @@ class MainActivity : AppCompatActivity(), OnImageAvailableListener {
         }
     }
 
-    // Exercise detection methods
+    private fun resetExerciseStates() {
+        pushUpState = 0; pushUpConsec = 0; lastPushUpCountTime = 0L
+        squatState = 0; squatConsec = 0; lastSquatCountTime = 0L
+        jjState = 0; jjUpConsec = 0; jjDownConsec = 0; lastJJCountTime = 0L
+        plankDogState = 0; plankDogConsec = 0; lastPlankDogCountTime = 0L
+        treePoseCount = 0; isInTreePose = false; treePoseHoldStart = 0L; lastTreePoseCountTime = 0L
+    }
+
+
     fun detectPushUp(pose: Pose) {
-        val leftShoulder = pose.getPoseLandmark(PoseLandmark.LEFT_SHOULDER)
-        val rightShoulder = pose.getPoseLandmark(PoseLandmark.RIGHT_SHOULDER)
-        val leftElbow = pose.getPoseLandmark(PoseLandmark.LEFT_ELBOW)
-        val rightElbow = pose.getPoseLandmark(PoseLandmark.RIGHT_ELBOW)
-        val leftWrist = pose.getPoseLandmark(PoseLandmark.LEFT_WRIST)
-        val rightWrist = pose.getPoseLandmark(PoseLandmark.RIGHT_WRIST)
-        val leftHip = pose.getPoseLandmark(PoseLandmark.LEFT_HIP)
-        val rightHip = pose.getPoseLandmark(PoseLandmark.RIGHT_HIP)
-        val leftKnee = pose.getPoseLandmark(PoseLandmark.LEFT_KNEE)
-        val rightKnee = pose.getPoseLandmark(PoseLandmark.RIGHT_KNEE)
+        val ls = pose.getPoseLandmark(PoseLandmark.LEFT_SHOULDER)
+        val le = pose.getPoseLandmark(PoseLandmark.LEFT_ELBOW)
+        val lw = pose.getPoseLandmark(PoseLandmark.LEFT_WRIST)
+        val lh = pose.getPoseLandmark(PoseLandmark.LEFT_HIP)
+        val lk = pose.getPoseLandmark(PoseLandmark.LEFT_KNEE)
+        if (listOf(ls, le, lw, lh, lk).any { it == null }) return
 
-        if (leftShoulder == null || rightShoulder == null ||
-            leftElbow == null || rightElbow == null ||
-            leftWrist == null || rightWrist == null ||
-            leftHip == null || rightHip == null) return
+        val elbowAngle = calculateAngle(ls!!, le!!, lw!!)
+        val torsoAngle = calculateAngle(ls, lh!!, lk!!)
+        val inPlank = torsoAngle > 140
 
-        val leftElbowAngle = calculateAngle(leftShoulder, leftElbow, leftWrist)
-        val rightElbowAngle = calculateAngle(rightShoulder, rightElbow, rightWrist)
-        val avgElbowAngle = (leftElbowAngle + rightElbowAngle) / 2.0
+        // confirm "down" on consecutive frames
+        if (elbowAngle < 110 && inPlank) pushUpConsec++ else pushUpConsec = 0
 
-        val knee = leftKnee ?: rightKnee ?: return
-        val torsoAngle = calculateAngle(leftShoulder, leftHip, knee)
-        val inPlankPosition = torsoAngle > 160 && torsoAngle < 180
-
-        if (avgElbowAngle < 90 && inPlankPosition) {
-            isLowered = true
-        } else if (avgElbowAngle > 160 && isLowered && inPlankPosition) {
-            pushUpCount++
-            isLowered = false
+        // state transitions
+        val now = System.currentTimeMillis()
+        when (pushUpState) {
+            0 -> if (pushUpConsec >= REQUIRED_CONSECUTIVE) {
+                pushUpState = 1  // DOWN_CONFIRMED
+                Log.d("PushUpState", "DOWN confirmed")
+            }
+            1 -> { // waiting for up
+                if (elbowAngle > 150) {
+                    if (now - lastPushUpCountTime > COUNT_COOLDOWN_MS) {
+                        pushUpCount++
+                        lastPushUpCountTime = now
+                        pushUpState = 2 // cooldown
+                        pushUpConsec = 0
+                        Log.d("PushUpState", "COUNTED pushUp=$pushUpCount")
+                    }
+                }
+            }
+            2 -> { // cooldown -> back to idle after cooldown period
+                if (now - lastPushUpCountTime > COUNT_COOLDOWN_MS) {
+                    pushUpState = 0
+                }
+            }
         }
     }
 
     fun detectSquat(pose: Pose) {
-        val leftHip = pose.getPoseLandmark(PoseLandmark.LEFT_HIP)
-        val rightHip = pose.getPoseLandmark(PoseLandmark.RIGHT_HIP)
-        val leftKnee = pose.getPoseLandmark(PoseLandmark.LEFT_KNEE)
-        val rightKnee = pose.getPoseLandmark(PoseLandmark.RIGHT_KNEE)
-        val leftAnkle = pose.getPoseLandmark(PoseLandmark.LEFT_ANKLE)
-        val rightAnkle = pose.getPoseLandmark(PoseLandmark.RIGHT_ANKLE)
-        val leftShoulder = pose.getPoseLandmark(PoseLandmark.LEFT_SHOULDER)
-        val rightShoulder = pose.getPoseLandmark(PoseLandmark.RIGHT_SHOULDER)
+        val lh = pose.getPoseLandmark(PoseLandmark.LEFT_HIP)
+        val lk = pose.getPoseLandmark(PoseLandmark.LEFT_KNEE)
+        val la = pose.getPoseLandmark(PoseLandmark.LEFT_ANKLE)
+        if (listOf(lh, lk, la).any { it == null }) return
 
-        if (leftHip == null || rightHip == null ||
-            leftKnee == null || rightKnee == null ||
-            leftAnkle == null || rightAnkle == null ||
-            leftShoulder == null || rightShoulder == null) return
+        val kneeAngle = calculateAngle(lh!!, lk!!, la!!)
+        val hipBelowKnee = lh.position.y > lk.position.y
 
-        val leftKneeAngle = calculateAngle(leftHip, leftKnee, leftAnkle)
-        val rightKneeAngle = calculateAngle(rightHip, rightKnee, rightAnkle)
-        val avgKneeAngle = (leftKneeAngle + rightKneeAngle) / 2.0
+        if (kneeAngle < 100 && hipBelowKnee) squatConsec++ else squatConsec = 0
 
-        val avgHipY = (leftHip.position.y + rightHip.position.y) / 2
-        val avgKneeY = (leftKnee.position.y + rightKnee.position.y) / 2
-        val hipBelowKnee = avgHipY > avgKneeY
-
-        val leftTorsoAngle = calculateAngle(leftShoulder, leftHip, leftKnee)
-        val rightTorsoAngle = calculateAngle(rightShoulder, rightHip, rightKnee)
-        val avgTorsoAngle = (leftTorsoAngle + rightTorsoAngle) / 2.0
-
-        if (avgKneeAngle < 90 && avgTorsoAngle > 80 && hipBelowKnee) {
-            isSquatting = true
-        } else if (avgKneeAngle > 160 && isSquatting) {
-            squatCount++
-            isSquatting = false
+        val now = System.currentTimeMillis()
+        when (squatState) {
+            0 -> if (squatConsec >= REQUIRED_CONSECUTIVE) squatState = 1
+            1 -> if (kneeAngle > 150) {
+                if (now - lastSquatCountTime > COUNT_COOLDOWN_MS) {
+                    squatCount++
+                    lastSquatCountTime = now
+                    squatState = 2
+                    squatConsec = 0
+                    Log.d("Squat", "COUNTED squat=$squatCount")
+                }
+            }
+            2 -> if (now - lastSquatCountTime > COUNT_COOLDOWN_MS) squatState = 0
         }
     }
+
 
     fun detectJumpingJack(pose: Pose) {
-        val leftWrist = pose.getPoseLandmark(PoseLandmark.LEFT_WRIST)
-        val rightWrist = pose.getPoseLandmark(PoseLandmark.RIGHT_WRIST)
-        val leftAnkle = pose.getPoseLandmark(PoseLandmark.LEFT_ANKLE)
-        val rightAnkle = pose.getPoseLandmark(PoseLandmark.RIGHT_ANKLE)
-        val leftHip = pose.getPoseLandmark(PoseLandmark.LEFT_HIP)
-        val rightHip = pose.getPoseLandmark(PoseLandmark.RIGHT_HIP)
-        val leftShoulder = pose.getPoseLandmark(PoseLandmark.LEFT_SHOULDER)
-        val rightShoulder = pose.getPoseLandmark(PoseLandmark.RIGHT_SHOULDER)
+        val lw = pose.getPoseLandmark(PoseLandmark.LEFT_WRIST)
+        val rw = pose.getPoseLandmark(PoseLandmark.RIGHT_WRIST)
+        val la = pose.getPoseLandmark(PoseLandmark.LEFT_ANKLE)
+        val ra = pose.getPoseLandmark(PoseLandmark.RIGHT_ANKLE)
+        val lh = pose.getPoseLandmark(PoseLandmark.LEFT_HIP)
+        val rh = pose.getPoseLandmark(PoseLandmark.RIGHT_HIP)
+        val ls = pose.getPoseLandmark(PoseLandmark.LEFT_SHOULDER)
+        val rs = pose.getPoseLandmark(PoseLandmark.RIGHT_SHOULDER)
+        if (listOf(lw, rw, la, ra, lh, rh, ls, rs).any { it == null }) return
 
-        if (leftWrist == null || rightWrist == null ||
-            leftAnkle == null || rightAnkle == null ||
-            leftHip == null || rightHip == null ||
-            leftShoulder == null || rightShoulder == null) return
+        val avgShoulderY = (ls!!.position.y + rs!!.position.y) / 2
+        val avgWristY = (lw!!.position.y + rw!!.position.y) / 2
+        val handsAbove = avgWristY < avgShoulderY - 15
 
-        val avgShoulderY = (leftShoulder.position.y + rightShoulder.position.y) / 2
-        val avgWristY = (leftWrist.position.y + rightWrist.position.y) / 2
-        val handsAboveShoulders = avgWristY < avgShoulderY - 30
+        val hipWidth = distance(lh!!, rh!!)
+        val ankleDist = distance(la!!, ra!!)
+        val legsApart = ankleDist > hipWidth * 1.3
 
-        val hipWidth = distance(leftHip, rightHip)
-        val ankleDistance = distance(leftAnkle, rightAnkle)
-        val legsApart = ankleDistance > hipWidth * 1.5
+        val handsDown = avgWristY > avgShoulderY + 15
+        val legsTogether = ankleDist <= hipWidth * 1.1
 
-        val handsDown = avgWristY > avgShoulderY + 20
-        val legsTogether = ankleDistance <= hipWidth * 1.2
+        if (handsAbove && legsApart) jjUpConsec++ else jjUpConsec = 0
+        if (handsDown && legsTogether) jjDownConsec++ else jjDownConsec = 0
 
-        if (handsDown && legsTogether) {
-            isInStartPosition = true
-        }
-
-        if (handsAboveShoulders && legsApart && isInStartPosition) {
-            isHandsUpAndLegsApart = true
-        } else if (handsDown && legsTogether && isHandsUpAndLegsApart) {
-            jumpingJackCount++
-            isHandsUpAndLegsApart = false
+        val now = System.currentTimeMillis()
+        when (jjState) {
+            0 -> if (jjUpConsec >= REQUIRED_CONSECUTIVE) jjState = 1
+            1 -> if (jjDownConsec >= REQUIRED_CONSECUTIVE) {
+                if (now - lastJJCountTime > COUNT_COOLDOWN_MS) {
+                    jumpingJackCount++
+                    lastJJCountTime = now
+                    jjState = 2
+                    jjUpConsec = 0; jjDownConsec = 0
+                    Log.d("JumpJack", "COUNTED JJ=$jumpingJackCount")
+                }
+            }
+            2 -> if (now - lastJJCountTime > COUNT_COOLDOWN_MS) jjState = 0
         }
     }
+
 
     fun detectPlankToDownwardDog(pose: Pose) {
-        val leftShoulder = pose.getPoseLandmark(PoseLandmark.LEFT_SHOULDER)
-        val rightShoulder = pose.getPoseLandmark(PoseLandmark.RIGHT_SHOULDER)
-        val leftHip = pose.getPoseLandmark(PoseLandmark.LEFT_HIP)
-        val rightHip = pose.getPoseLandmark(PoseLandmark.RIGHT_HIP)
-        val leftAnkle = pose.getPoseLandmark(PoseLandmark.LEFT_ANKLE)
-        val rightAnkle = pose.getPoseLandmark(PoseLandmark.RIGHT_ANKLE)
-        val leftWrist = pose.getPoseLandmark(PoseLandmark.LEFT_WRIST)
-        val rightWrist = pose.getPoseLandmark(PoseLandmark.RIGHT_WRIST)
+        val ls = pose.getPoseLandmark(PoseLandmark.LEFT_SHOULDER)
+        val rs = pose.getPoseLandmark(PoseLandmark.RIGHT_SHOULDER)
+        val lh = pose.getPoseLandmark(PoseLandmark.LEFT_HIP)
+        val rh = pose.getPoseLandmark(PoseLandmark.RIGHT_HIP)
+        val la = pose.getPoseLandmark(PoseLandmark.LEFT_ANKLE)
+        val ra = pose.getPoseLandmark(PoseLandmark.RIGHT_ANKLE)
+        val lw = pose.getPoseLandmark(PoseLandmark.LEFT_WRIST)
+        val rw = pose.getPoseLandmark(PoseLandmark.RIGHT_WRIST)
+        if (listOf(ls, rs, lh, rh, la, ra, lw, rw).any { it == null }) return
 
-        if (leftShoulder == null || rightShoulder == null ||
-            leftHip == null || rightHip == null ||
-            leftAnkle == null || rightAnkle == null ||
-            leftWrist == null || rightWrist == null) return
+        val shoulderY = (ls!!.position.y + rs!!.position.y) / 2
+        val hipY = (lh!!.position.y + rh!!.position.y) / 2
+        val ankleY = (la!!.position.y + ra!!.position.y) / 2
+        val wristY = (lw!!.position.y + rw!!.position.y) / 2
 
-        val shoulderY = (leftShoulder.position.y + rightShoulder.position.y) / 2
-        val hipY = (leftHip.position.y + rightHip.position.y) / 2
-        val ankleY = (leftAnkle.position.y + rightAnkle.position.y) / 2
-        val wristY = (leftWrist.position.y + rightWrist.position.y) / 2
+        val bodyAlign = abs(shoulderY - hipY) < 80 && abs(hipY - ankleY) < 80
+        val handsOnGround = abs(wristY - shoulderY) < 150
+        val inPlank = bodyAlign && handsOnGround
 
-        val bodyAlignment = kotlin.math.abs(shoulderY - hipY) < 30 && kotlin.math.abs(hipY - ankleY) < 30
-        val handsOnGround = kotlin.math.abs(wristY - shoulderY) < 50
-        val inPlankPosition = bodyAlignment && handsOnGround
-
-        val hipsElevated = hipY < shoulderY - 50 && hipY < ankleY - 30
+        val hipsElevated = hipY < shoulderY - 20 && hipY < ankleY - 10
         val inDownwardDog = hipsElevated && handsOnGround
 
-        if (inPlankPosition && !isInPlank) {
-            isInPlank = true
-        } else if (isInPlank && inDownwardDog) {
-            plankDogCount++
-            isInPlank = false
+        if (inDownwardDog) plankDogConsec++ else plankDogConsec = 0
+
+        val now = System.currentTimeMillis()
+        when (plankDogState) {
+            0 -> if (inPlank) plankDogState = 10
+            10 -> if (plankDogConsec >= REQUIRED_CONSECUTIVE && inDownwardDog) {
+                if (now - lastPlankDogCountTime > COUNT_COOLDOWN_MS) {
+                    plankDogCount++
+                    lastPlankDogCountTime = now
+                    plankDogState = 20
+                    plankDogConsec = 0
+                    Log.d("PlankDog", "COUNTED plank->dog=$plankDogCount")
+                }
+            }
+            20 -> if (now - lastPlankDogCountTime > COUNT_COOLDOWN_MS) plankDogState = 0
         }
     }
+
+    fun detectTreePose(pose: Pose) {
+        val la = pose.getPoseLandmark(PoseLandmark.LEFT_ANKLE)
+        val ra = pose.getPoseLandmark(PoseLandmark.RIGHT_ANKLE)
+        if (la == null || ra == null) return
+
+        val diffY = abs(la.position.y - ra.position.y)
+        val threshold = previewHeight * 0.25f
+        val currentlyInPose = diffY > threshold
+
+        if (currentlyInPose) {
+            if (!isInTreePose) {
+                isInTreePose = true
+                treePoseHoldStart = System.currentTimeMillis()
+                Log.d("TreePose", "Start holding")
+            } else {
+                val holdTime = System.currentTimeMillis() - treePoseHoldStart
+                if (holdTime >= TREE_HOLD_THRESHOLD_MS) {
+                    val now = System.currentTimeMillis()
+                    if (now - lastTreePoseCountTime > TREE_HOLD_THRESHOLD_MS) {
+                        treePoseCount++
+                        lastTreePoseCountTime = now
+                        Log.d("TreePose", "COUNTED treePose=$treePoseCount")
+                    }
+                }
+            }
+        } else {
+            if (isInTreePose) {
+                Log.d("TreePose", "Exit pose, held ${(System.currentTimeMillis()-treePoseHoldStart)/1000}s")
+            }
+            isInTreePose = false
+        }
+    }
+
+
 
     fun calculateAngle(first: PoseLandmark, mid: PoseLandmark, last: PoseLandmark): Double {
         val a = distance(mid, last)

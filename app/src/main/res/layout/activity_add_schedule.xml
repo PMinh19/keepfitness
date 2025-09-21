@@ -54,7 +54,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Create Schedule"
+                    android:text="Tạo Lịch Trình"
                     android:textSize="28sp"
                     android:textStyle="bold"
                     android:textColor="#2E7D32"
@@ -63,7 +63,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Plan your workout routine"
+                    android:text="Kế hoạch tập luyện"
                     android:textSize="16sp"
                     android:textColor="#666666"
                     android:gravity="center" />
@@ -90,7 +90,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="⏰ Workout Time"
+                    android:text="⏰ Thời gian tập luyện"
                     android:textSize="18sp"
                     android:textStyle="bold"
                     android:textColor="#2E7D32"
@@ -110,7 +110,7 @@
                         android:id="@+id/edtTime"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:hint="Select Time"
+                        android:hint="Chọn thời gian"
                         android:focusable="false"
                         android:clickable="false"
                         android:textSize="16sp" />
@@ -121,7 +121,7 @@
                     android:id="@+id/btnPickTime"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Pick Time"
+                    android:text="Chọn giờ"
                     android:backgroundTint="#4CAF50"
                     android:textColor="@android:color/white"
                     app:cornerRadius="12dp"
@@ -150,7 +150,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="💪 Exercise Type"
+                    android:text="💪 Bài tập"
                     android:textSize="18sp"
                     android:textStyle="bold"
                     android:textColor="#2E7D32"
@@ -159,7 +159,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Choose your exercise"
+                    android:text="Chọn bài tập"
                     android:textSize="14sp"
                     android:textColor="#666666"
                     android:layout_marginBottom="8dp" />
@@ -184,7 +184,7 @@
                         android:id="@+id/edtQuantity"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:hint="Target count (e.g. 50)"
+                        android:hint="Mục tiêu số lần (ví dụ: 50)"
                         android:inputType="number"
                         android:textSize="16sp" />
 
@@ -212,7 +212,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="📅 Workout Days"
+                    android:text="📅 Ngày tập luyện"
                     android:textSize="18sp"
                     android:textStyle="bold"
                     android:textColor="#2E7D32"
@@ -233,7 +233,7 @@
                         android:id="@+id/checkAllDays"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="🌟 All Days"
+                        android:text="🌟 Tất cả các ngày"
                         android:textSize="16sp"
                         android:textStyle="bold"
                         android:textColor="#2E7D32"
@@ -259,7 +259,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="Mon"
+                            android:text="Thứ hai"
                             android:textColor="#666666"
                             android:buttonTint="#4CAF50" />
 
@@ -268,7 +268,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="Tue"
+                            android:text="Thứ ba"
                             android:textColor="#666666"
                             android:buttonTint="#4CAF50" />
 
@@ -277,7 +277,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="Wed"
+                            android:text="Thứ tư"
                             android:textColor="#666666"
                             android:buttonTint="#4CAF50" />
 
@@ -286,7 +286,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="Thu"
+                            android:text="Thứ năm"
                             android:textColor="#666666"
                             android:buttonTint="#4CAF50" />
 
@@ -302,7 +302,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="Fri"
+                            android:text="Thứ sáu"
                             android:textColor="#666666"
                             android:buttonTint="#4CAF50" />
 
@@ -311,7 +311,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="Sat"
+                            android:text="Thứ bảy"
                             android:textColor="#666666"
                             android:buttonTint="#4CAF50" />
 
@@ -320,7 +320,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="Sun"
+                            android:text="Chủ nhật"
                             android:textColor="#666666"
                             android:buttonTint="#4CAF50" />
 
@@ -351,7 +351,7 @@
                 android:layout_height="56dp"
                 android:layout_weight="1"
                 android:layout_marginEnd="8dp"
-                android:text="Save Schedule"
+                android:text="Lưu lịch tập"
                 android:textSize="16sp"
                 android:textStyle="bold"
                 android:backgroundTint="#4CAF50"
@@ -366,7 +366,7 @@
                 android:layout_height="56dp"
                 android:layout_weight="1"
                 android:layout_marginStart="8dp"
-                android:text="Delete"
+                android:text="Xóa"
                 android:textSize="16sp"
                 android:textStyle="bold"
                 android:backgroundTint="#F44336"

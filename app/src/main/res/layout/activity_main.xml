@@ -15,9 +15,7 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.0"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        >
-    </FrameLayout>
+        app:layout_constraintTop_toTopOf="parent" />
 
     <com.example.keepyfitness.PoseOverlay
         android:id="@+id/po"
@@ -53,7 +51,7 @@
                 android:layout_width="20dp"
                 android:layout_height="20dp"
                 android:src="@android:drawable/ic_lock_idle_alarm"
-                android:tint="@color/white"
+                app:tint="@color/white"
                 android:layout_marginEnd="8dp" />
 
             <TextView
@@ -107,9 +105,7 @@
                 android:layout_marginTop="4dp"
                 android:alpha="0.8" />
 
-
         </LinearLayout>
-
     </FrameLayout>
 
     <!-- Exercise Info Card -->
@@ -162,14 +158,14 @@
                 android:layout_width="24dp"
                 android:layout_height="24dp"
                 android:src="@android:drawable/ic_media_pause"
-                android:tint="@color/white"
+                app:tint="@color/white"
                 android:layout_marginEnd="12dp" />
 
             <TextView
                 android:id="@+id/stopWorkoutText"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Stop Workout"
+                android:text="Dừng luyện tập"
                 android:textColor="@color/white"
                 android:textSize="18sp"
                 android:textStyle="bold" />

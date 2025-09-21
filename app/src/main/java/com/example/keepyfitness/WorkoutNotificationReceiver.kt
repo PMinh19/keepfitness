@@ -17,7 +17,7 @@ class WorkoutNotificationReceiver : BroadcastReceiver() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 channelId,
-                "Workout Reminders",
+                "Nhắc nhở tập luyện",
                 NotificationManager.IMPORTANCE_HIGH
             )
             notificationManager.createNotificationChannel(channel)
@@ -27,8 +27,8 @@ class WorkoutNotificationReceiver : BroadcastReceiver() {
         val pendingIntent = PendingIntent.getActivity(context, 0, notificationIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
 
         val notification = NotificationCompat.Builder(context, channelId)
-            .setContentTitle("Workout Time!")
-            .setContentText("It's time to start your workout.")
+            .setContentTitle("Thời gian tập luyện!")
+            .setContentText("Đã đến giờ tập luyện.")
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)

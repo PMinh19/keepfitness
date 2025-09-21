@@ -61,7 +61,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="My Schedules"
+                    android:text="Lịch trình của tôi"
                     android:textSize="24sp"
                     android:textStyle="bold"
                     android:textColor="#2E7D32" />
@@ -69,7 +69,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Manage your workout plans"
+                    android:text="Quản lí kế hoạch luyện tập"
                     android:textSize="14sp"
                     android:textColor="#666666" />
 
@@ -141,7 +141,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Total Plans"
+                    android:text="Kế hoạch tổng thể"
                     android:textSize="12sp"
                     android:textColor="#666666" />
 
@@ -178,7 +178,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Today"
+                    android:text="Hôm nay"
                     android:textSize="12sp"
                     android:textColor="#666666" />
 
@@ -213,7 +213,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="📋 Your Workout Schedules"
+                android:text="📋 Kế hoạch luyện tập của bạn"
                 android:textSize="18sp"
                 android:textStyle="bold"
                 android:textColor="#2E7D32"
@@ -248,7 +248,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="No schedules yet"
+                    android:text="Chưa có kế hoạch"
                     android:textSize="20sp"
                     android:textStyle="bold"
                     android:textColor="#666666"
@@ -257,7 +257,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Create your first workout schedule to get started!"
+                    android:text="Hãy tạo kế hoạch luyện tập để bắt đầu!"
                     android:textSize="16sp"
                     android:textColor="#999999"
                     android:gravity="center"
@@ -267,7 +267,7 @@
                     android:id="@+id/btnCreateFirstSchedule"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Create Schedule"
+                    android:text="Tạo kế hoạch"
                     android:backgroundTint="#4CAF50"
                     android:textColor="@android:color/white"
                     app:cornerRadius="20dp"

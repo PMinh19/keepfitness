@@ -16,7 +16,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Workout Complete!"
+            android:text="Hoàn thành luyện tập!"
             android:textSize="28sp"
             android:textStyle="bold"
             android:textColor="#2E7D32"
@@ -43,7 +43,7 @@
             android:id="@+id/exerciseName"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Push Ups"
+            android:text="Tập chống đẩy"
             android:textSize="24sp"
             android:textStyle="bold"
             android:textColor="#333333"
@@ -74,7 +74,7 @@
                         android:layout_width="48dp"
                         android:layout_height="48dp"
                         android:src="@android:drawable/ic_dialog_info"
-                        android:tint="#4CAF50"
+                        app:tint="#4CAF50"
                         android:layout_gravity="center_vertical"
                         android:layout_marginEnd="16dp" />
 
@@ -87,7 +87,7 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Completed"
+                            android:text="Hoàn thành"
                             android:textSize="16sp"
                             android:textColor="#666666" />
 
@@ -134,7 +134,7 @@
                         android:layout_width="48dp"
                         android:layout_height="48dp"
                         android:src="@android:drawable/ic_menu_mylocation"
-                        android:tint="#FF9800"
+                        app:tint="#FF9800"
                         android:layout_gravity="center_vertical"
                         android:layout_marginEnd="16dp" />
 
@@ -146,7 +146,7 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Target Goal"
+                            android:text="Mục tiêu điểm"
                             android:textSize="16sp"
                             android:textColor="#666666" />
 
@@ -183,7 +183,7 @@
                         android:layout_width="48dp"
                         android:layout_height="48dp"
                         android:src="@android:drawable/ic_lock_idle_alarm"
-                        android:tint="#2196F3"
+                        app:tint="#2196F3"
                         android:layout_gravity="center_vertical"
                         android:layout_marginEnd="16dp" />
 
@@ -195,7 +195,7 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Workout Duration"
+                            android:text="Thời gian luyện tập"
                             android:textSize="16sp"
                             android:textColor="#666666" />
 
@@ -203,7 +203,7 @@
                             android:id="@+id/workoutDuration"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="5 min 30 sec"
+                            android:text="5'30"
                             android:textSize="24sp"
                             android:textStyle="bold"
                             android:textColor="#2196F3" />
@@ -232,7 +232,7 @@
                         android:layout_width="48dp"
                         android:layout_height="48dp"
                         android:src="@android:drawable/ic_delete"
-                        android:tint="#E91E63"
+                        app:tint="#E91E63"
                         android:layout_gravity="center_vertical"
                         android:layout_marginEnd="16dp" />
 
@@ -244,7 +244,7 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Calories Burned"
+                            android:text="Calo đã được đốt cháy"
                             android:textSize="16sp"
                             android:textColor="#666666" />
 
@@ -270,7 +270,7 @@
             android:id="@+id/achievementMessage"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Great job! Keep up the good work!"
+            android:text="Làm tốt lắm. Hãy giữ phong độ nhé!"
             android:textSize="18sp"
             android:textStyle="italic"
             android:textColor="#4CAF50"
@@ -290,7 +290,7 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:layout_marginEnd="8dp"
-                android:text="Workout Again"
+                android:text="Luyện tập lại"
                 android:backgroundTint="#4CAF50"
                 android:textColor="#FFFFFF"
                 app:cornerRadius="12dp" />
@@ -301,7 +301,7 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:layout_marginStart="8dp"
-                android:text="Finish"
+                android:text="Hoàn thành"
                 android:backgroundTint="#2196F3"
                 android:textColor="#FFFFFF"
                 app:cornerRadius="12dp" />

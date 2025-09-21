@@ -322,7 +322,7 @@ class CameraConnectionFragment @SuppressLint("ValidFragment") private constructo
             activity?.getSystemService(Context.CAMERA_SERVICE) as CameraManager
         try {
             if (!cameraOpenCloseLock.tryAcquire(2500, TimeUnit.MILLISECONDS)) {
-                throw RuntimeException("Time out waiting to lock camera opening.")
+                throw RuntimeException("Thời gian chờ để khóa màn hình camera.")
             }
             if (getActivity()?.let {
                     ActivityCompat.checkSelfPermission(
@@ -344,7 +344,7 @@ class CameraConnectionFragment @SuppressLint("ValidFragment") private constructo
         } catch (e: CameraAccessException) {
             // LOGGER.e(e, "Exception!");
         } catch (e: InterruptedException) {
-            throw RuntimeException("Interrupted while trying to lock camera opening.", e)
+            throw RuntimeException("Bị gián đoạn khi khóa camera.", e)
         }
     }
 
@@ -365,7 +365,7 @@ class CameraConnectionFragment @SuppressLint("ValidFragment") private constructo
                 previewReader = null
             }
         } catch (e: InterruptedException) {
-            throw RuntimeException("Interrupted while trying to lock camera closing.", e)
+            throw RuntimeException("Bị gián đoạn khi khóa camera.", e)
         } finally {
             cameraOpenCloseLock.release()
         }

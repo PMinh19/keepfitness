@@ -41,10 +41,11 @@ class ExerciseListActivity : AppCompatActivity() {
         exerciseListView = findViewById(R.id.exerciseList)
 
         val list = listOf(
-            ExerciseDataModel("Push Ups", R.drawable.pushup, 1, Color.parseColor("#0041a8")),
-            ExerciseDataModel("Squats", R.drawable.squat, 2, Color.parseColor("#f20226")),
-            ExerciseDataModel("Jumping Jacks", R.drawable.jumping, 3, Color.parseColor("#f7680f")),
-            ExerciseDataModel("Plank To Downward Dog", R.drawable.plank, 4, Color.parseColor("#008a40")),
+            ExerciseDataModel("Tập Chống Đẩy", R.drawable.pushup, 1, Color.parseColor("#0041a8")),
+            ExerciseDataModel("Squat", R.drawable.squat, 2, Color.parseColor("#f20226")),
+            ExerciseDataModel("Dang Tay Chân Cardio", R.drawable.jumping, 3, Color.parseColor("#f7680f")),
+            ExerciseDataModel("Downward Dog Yoga", R.drawable.plank, 4, Color.parseColor("#008a40")),
+            ExerciseDataModel("Đứng Một Chân", R.drawable.treepose, 5, Color.parseColor("#7b1fa2")),
         )
 
         val adapter = ExerciseAdapter(this, list)

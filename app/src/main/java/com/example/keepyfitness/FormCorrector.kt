@@ -21,6 +21,7 @@ class FormCorrector {
             2 -> feedbacks.addAll(analyzeSquatForm(pose))
             3 -> feedbacks.addAll(analyzeJumpingJackForm(pose))
             4 -> feedbacks.addAll(analyzePlankForm(pose))
+            5 -> feedbacks.addAll(analyzeTreePose(pose)) // ✅ thêm case Tree Pose
         }
 
         return feedbacks
@@ -42,7 +43,120 @@ class FormCorrector {
         return maxOf(0, baseScore)
     }
 
-    private fun analyzePushUpForm(pose: Pose): List<FormFeedback> {
+    private fun analyzeTreePose(pose: Pose): List<FormFeedback> {
+        val feedbacks = mutableListOf<FormFeedback>()
+
+        val leftAnkle = pose.getPoseLandmark(PoseLandmark.LEFT_ANKLE)
+        val rightAnkle = pose.getPoseLandmark(PoseLandmark.RIGHT_ANKLE)
+        val leftKnee = pose.getPoseLandmark(PoseLandmark.LEFT_KNEE)
+        val rightKnee = pose.getPoseLandmark(PoseLandmark.RIGHT_KNEE)
+        val leftHip = pose.getPoseLandmark(PoseLandmark.LEFT_HIP)
+        val rightHip = pose.getPoseLandmark(PoseLandmark.RIGHT_HIP)
+        val leftShoulder = pose.getPoseLandmark(PoseLandmark.LEFT_SHOULDER)
+        val rightShoulder = pose.getPoseLandmark(PoseLandmark.RIGHT_SHOULDER)
+        val leftWrist = pose.getPoseLandmark(PoseLandmark.LEFT_WRIST)
+        val rightWrist = pose.getPoseLandmark(PoseLandmark.RIGHT_WRIST)
+
+        if (leftAnkle == null || rightAnkle == null ||
+            leftKnee == null || rightKnee == null ||
+            leftHip == null || rightHip == null ||
+            leftShoulder == null || rightShoulder == null) {
+            return feedbacks
+        }
+
+        // 1. Kiểm tra có đứng bằng 1 chân không
+        val ankleDiffY = abs(leftAnkle.position.y - rightAnkle.position.y)
+        if (ankleDiffY < 50f) {
+            feedbacks.add(
+                FormFeedback(
+                    exerciseId = 5,
+                    feedbackType = FeedbackType.ALIGNMENT,
+                    message = "Hãy nhấc một chân lên để vào tư thế cây",
+                    severity = FeedbackSeverity.INFO
+                )
+            )
+        }
+
+        // 2. Kiểm tra chân trụ có thẳng không
+        val leftHigher = leftAnkle.position.y < rightAnkle.position.y
+        val rightHigher = rightAnkle.position.y < leftAnkle.position.y
+        if (leftHigher) {
+            val angle = calculateAngleSafe(rightHip, rightKnee, rightAnkle)
+            if (angle < 170) {
+                feedbacks.add(
+                    FormFeedback(
+                        exerciseId = 5,
+                        feedbackType = FeedbackType.POSTURE_CORRECTION,
+                        message = "Chân trụ chưa thẳng, hãy đứng thẳng hơn",
+                        severity = FeedbackSeverity.WARNING
+                    )
+                )
+            }
+        }
+        if (rightHigher) {
+            val angle = calculateAngleSafe(leftHip, leftKnee, leftAnkle)
+            if (angle < 170) {
+                feedbacks.add(
+                    FormFeedback(
+                        exerciseId = 5,
+                        feedbackType = FeedbackType.POSTURE_CORRECTION,
+                        message = "Chân trụ chưa thẳng, hãy đứng thẳng hơn",
+                        severity = FeedbackSeverity.WARNING
+                    )
+                )
+            }
+        }
+
+        // 3. Kiểm tra vai có cân bằng không
+        val shoulderDiffY = abs(leftShoulder.position.y - rightShoulder.position.y)
+        if (shoulderDiffY > 40f) {
+            feedbacks.add(
+                FormFeedback(
+                    exerciseId = 5,
+                    feedbackType = FeedbackType.ALIGNMENT,
+                    message = "Giữ vai cân bằng, lưng thẳng",
+                    severity = FeedbackSeverity.WARNING
+                )
+            )
+        }
+
+        // 4. Kiểm tra tay chắp lại hoặc đưa lên cao
+        if (leftWrist != null && rightWrist != null) {
+            val wristDiffY = abs(leftWrist.position.y - rightWrist.position.y)
+            if (!(leftWrist.position.y < leftShoulder.position.y &&
+                        rightWrist.position.y < rightShoulder.position.y &&
+                        wristDiffY < 60f)) {
+                feedbacks.add(
+                    FormFeedback(
+                        exerciseId = 5,
+                        feedbackType = FeedbackType.POSTURE_CORRECTION,
+                        message = "Giữ hai tay chắp lại hoặc đưa lên cao",
+                        severity = FeedbackSeverity.INFO
+                    )
+                )
+            }
+        }
+
+        // 5. Kiểm tra chân nhấc đặt đúng vị trí (gần đùi trong)
+        val liftedKnee = if (leftHigher) leftKnee else if (rightHigher) rightKnee else null
+        val supportHip = if (leftHigher) rightHip else if (rightHigher) leftHip else null
+        if (liftedKnee != null && supportHip != null) {
+            val kneeToHipDist = abs(liftedKnee.position.y - supportHip.position.y)
+            if (kneeToHipDist > 250f) {
+                feedbacks.add(
+                    FormFeedback(
+                        exerciseId = 5,
+                        feedbackType = FeedbackType.ALIGNMENT,
+                        message = "Đặt chân nhấc lên gần đùi trong hoặc bắp chân",
+                        severity = FeedbackSeverity.WARNING
+                    )
+                )
+            }
+        }
+
+        return feedbacks
+    }
+    fun analyzePushUpForm(pose: Pose): List<FormFeedback> {
         val feedbacks = mutableListOf<FormFeedback>()
 
         val leftShoulder = pose.getPoseLandmark(PoseLandmark.LEFT_SHOULDER)
@@ -74,7 +188,7 @@ class FormCorrector {
                     feedbacks.add(FormFeedback(
                         exerciseId = 1,
                         feedbackType = FeedbackType.POSTURE_CORRECTION,
-                        message = "Elbows too wide, keep elbows close to your body",
+                        message = "Khuỷu tay đang dang quá rộng, hãy giữ khuỷu tay vào gần cơ thể bạn",
                         severity = FeedbackSeverity.WARNING
                     ))
                 }
@@ -88,7 +202,7 @@ class FormCorrector {
                     feedbacks.add(FormFeedback(
                         exerciseId = 1,
                         feedbackType = FeedbackType.POSTURE_CORRECTION,
-                        message = "Keep your back straight, don't arch or bend",
+                        message = "Hãy giữ lưng thẳng, không cong hay cúi xuống.",
                         severity = FeedbackSeverity.CRITICAL
                     ))
                 }
@@ -100,7 +214,7 @@ class FormCorrector {
                 feedbacks.add(FormFeedback(
                     exerciseId = 1,
                     feedbackType = FeedbackType.ALIGNMENT,
-                    message = "Hands not aligned, place hands evenly",
+                    message = "Hai tay không thẳng hàng, hãy đặt hai tay đều nhau.",
                     severity = FeedbackSeverity.WARNING
                 ))
             }
@@ -110,7 +224,7 @@ class FormCorrector {
                 feedbacks.add(FormFeedback(
                     exerciseId = 1,
                     feedbackType = FeedbackType.POSTURE_CORRECTION,
-                    message = "Perfect! Great elbow angle",
+                    message = "Góc khuỷu tay tuyệt vời!",
                     severity = FeedbackSeverity.INFO
                 ))
             }
@@ -143,7 +257,7 @@ class FormCorrector {
                 feedbacks.add(FormFeedback(
                     exerciseId = 2,
                     feedbackType = FeedbackType.SAFETY_WARNING,
-                    message = "Knees past toes, push your hips back",
+                    message = "Đầu gối đang qua ngón chân, hãy đẩy hông về phía sau.",
                     severity = FeedbackSeverity.CRITICAL
                 ))
             }
@@ -156,7 +270,7 @@ class FormCorrector {
                 feedbacks.add(FormFeedback(
                     exerciseId = 2,
                     feedbackType = FeedbackType.RANGE_OF_MOTION,
-                    message = "Squat not deep enough, go lower",
+                    message = "Squat chưa đủ sâu, hãy hạ thấp hơn.",
                     severity = FeedbackSeverity.WARNING
                 ))
             }
@@ -169,7 +283,7 @@ class FormCorrector {
                 feedbacks.add(FormFeedback(
                     exerciseId = 2,
                     feedbackType = FeedbackType.ALIGNMENT,
-                    message = "Feet too wide, bring them closer together",
+                    message = "Chân đang để quá rộng, hãy chỉnh lại tư thế để chân gần nhau hơn.",
                     severity = FeedbackSeverity.WARNING
                 ))
             }
@@ -179,7 +293,7 @@ class FormCorrector {
                 feedbacks.add(FormFeedback(
                     exerciseId = 2,
                     feedbackType = FeedbackType.POSTURE_CORRECTION,
-                    message = "Perfect! Great squat angle",
+                    message = "Góc squat hoàn hảo.",
                     severity = FeedbackSeverity.INFO
                 ))
             }
@@ -210,7 +324,7 @@ class FormCorrector {
                 feedbacks.add(FormFeedback(
                     exerciseId = 3,
                     feedbackType = FeedbackType.RANGE_OF_MOTION,
-                    message = "Raise your arms higher, above your head",
+                    message = "Cần giơ tay cao hơn nữa, giơ trên đầu bạn.",
                     severity = FeedbackSeverity.WARNING
                 ))
             }
@@ -221,7 +335,7 @@ class FormCorrector {
                 feedbacks.add(FormFeedback(
                     exerciseId = 3,
                     feedbackType = FeedbackType.TIMING,
-                    message = "Arms not synchronized, raise them together",
+                    message = "Nâng cả hai tay lên cùng nhau.",
                     severity = FeedbackSeverity.WARNING
                 ))
             }
@@ -234,7 +348,7 @@ class FormCorrector {
                 feedbacks.add(FormFeedback(
                     exerciseId = 3,
                     feedbackType = FeedbackType.RANGE_OF_MOTION,
-                    message = "Spread your legs wider, beyond shoulder width",
+                    message = "Mở rộng chân ra, vượt qua khoảng cách vai.",
                     severity = FeedbackSeverity.WARNING
                 ))
             }
@@ -244,7 +358,7 @@ class FormCorrector {
                 feedbacks.add(FormFeedback(
                     exerciseId = 3,
                     feedbackType = FeedbackType.POSTURE_CORRECTION,
-                    message = "Excellent! Perfect form",
+                    message = "Tư thế hoàn hảo.",
                     severity = FeedbackSeverity.INFO
                 ))
             }
@@ -280,14 +394,14 @@ class FormCorrector {
                     feedbacks.add(FormFeedback(
                         exerciseId = 4,
                         feedbackType = FeedbackType.POSTURE_CORRECTION,
-                        message = "Hips too low, lift your hips up",
+                        message = "Hông đang quá thấp, nâng hông của bạn lên",
                         severity = FeedbackSeverity.CRITICAL
                     ))
                 } else {
                     feedbacks.add(FormFeedback(
                         exerciseId = 4,
                         feedbackType = FeedbackType.POSTURE_CORRECTION,
-                        message = "Hips too high, lower your hips down",
+                        message = "Hông đang quá cao, hãy hạ hông thấp hơn.",
                         severity = FeedbackSeverity.CRITICAL
                     ))
                 }
@@ -298,13 +412,24 @@ class FormCorrector {
                 feedbacks.add(FormFeedback(
                     exerciseId = 4,
                     feedbackType = FeedbackType.POSTURE_CORRECTION,
-                    message = "Excellent! Keep your body straight",
+                    message = "Tuyệt vời, hãy giữ cơ thể bạn thẳng.",
                     severity = FeedbackSeverity.INFO
                 ))
             }
         }
 
         return feedbacks
+    }
+
+    private fun calculateAngleSafe(first: PoseLandmark, mid: PoseLandmark, last: PoseLandmark): Double {
+        val a = distance(mid, last)
+        val b = distance(first, mid)
+        val c = distance(first, last)
+
+        if (a == 0.0 || b == 0.0) return 180.0 // tránh chia 0
+
+        val cosValue = ((b * b + a * a - c * c) / (2 * b * a)).coerceIn(-1.0, 1.0)
+        return acos(cosValue) * (180 / PI)
     }
 
     private fun calculateAngle(first: PoseLandmark, mid: PoseLandmark, last: PoseLandmark): Double {
@@ -320,3 +445,4 @@ class FormCorrector {
         return sqrt((dx * dx + dy * dy).toDouble())
     }
 }
+

@@ -74,7 +74,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Welcome Back!"
+                android:text="Chào mừng đã quay trở lại!"
                 android:textSize="24sp"
                 android:textStyle="bold"
                 android:textColor="#4CAF50"
@@ -83,7 +83,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Sign in to continue your fitness journey"
+                android:text="Hãy đăng nhập để tiếp tục ứng dụng."
                 android:textSize="16sp"
                 android:textColor="#666666"
                 android:gravity="center"
@@ -104,7 +104,7 @@
                     android:id="@+id/emailEditText"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:hint="Email Address"
+                    android:hint="Email"
                     android:inputType="textEmailAddress"
                     android:textSize="16sp" />
             </com.google.android.material.textfield.TextInputLayout>
@@ -126,7 +126,7 @@
                     android:id="@+id/passwordEditText"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:hint="Password"
+                    android:hint="Mật khẩu"
                     android:inputType="textPassword"
                     android:textSize="16sp" />
             </com.google.android.material.textfield.TextInputLayout>
@@ -136,7 +136,7 @@
                 android:id="@+id/forgotPasswordTextView"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Forgot password?"
+                android:text="Quên mật khẩu?"
                 android:textColor="#4CAF50"
                 android:textSize="14sp"
                 android:textStyle="bold"
@@ -150,7 +150,7 @@
                 android:id="@+id/loginButton"
                 android:layout_width="match_parent"
                 android:layout_height="56dp"
-                android:text="Login"
+                android:text="Đăng nhập"
                 android:textSize="18sp"
                 android:textStyle="bold"
                 android:backgroundTint="#4CAF50"
@@ -176,7 +176,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="  OR  "
+                    android:text="  Hoặc  "
                     android:textColor="#999999"
                     android:textSize="14sp" />
 
@@ -197,7 +197,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Don't have an account? "
+                    android:text="Bạn chưa có tài khoản? "
                     android:textColor="#666666"
                     android:textSize="16sp" />
 
@@ -205,7 +205,7 @@
                     android:id="@+id/registerTextView"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Sign Up"
+                    android:text="Đăng kí"
                     android:textColor="#4CAF50"
                     android:textSize="16sp"
                     android:textStyle="bold"

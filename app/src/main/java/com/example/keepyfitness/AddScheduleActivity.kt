@@ -37,7 +37,7 @@ class AddScheduleActivity : AppCompatActivity() {
         val edtQuantity = findViewById<EditText>(R.id.edtQuantity)
 
         // Thiết lập danh sách bài tập cho Spinner
-        val exerciseList = listOf("Push Ups", "Squats", "Jumping Jacks", "Plank To Downward Dog")
+        val exerciseList = listOf("Tập Chống Đẩy", "Squat", "Dang Tay Chân Cardio", "Downward Dog Yoga", "Tree Pose")
         val exerciseAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, exerciseList)
         exerciseAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         spinnerExercise.adapter = exerciseAdapter
@@ -51,13 +51,13 @@ class AddScheduleActivity : AppCompatActivity() {
             edtTime.setText(editSchedule.time)
             edtQuantity.setText(editSchedule.quantity.toString())
             spinnerExercise.setSelection(exerciseList.indexOf(editSchedule.exercise))
-            checkMon.isChecked = editSchedule.days.contains("Monday")
-            checkTue.isChecked = editSchedule.days.contains("Tuesday")
-            checkWed.isChecked = editSchedule.days.contains("Wednesday")
-            checkThu.isChecked = editSchedule.days.contains("Thursday")
-            checkFri.isChecked = editSchedule.days.contains("Friday")
-            checkSat.isChecked = editSchedule.days.contains("Saturday")
-            checkSun.isChecked = editSchedule.days.contains("Sunday")
+            checkMon.isChecked = editSchedule.days.contains("Thứ Hai")
+            checkTue.isChecked = editSchedule.days.contains("Thứ Ba")
+            checkWed.isChecked = editSchedule.days.contains("Thứ Tư")
+            checkThu.isChecked = editSchedule.days.contains("Thứ Năm")
+            checkFri.isChecked = editSchedule.days.contains("Thứ Sáu")
+            checkSat.isChecked = editSchedule.days.contains("Thứ Bảy")
+            checkSun.isChecked = editSchedule.days.contains("Chủ Nhật")
             checkAll.isChecked = editSchedule.days.size == 7
             btnDelete.visibility = Button.VISIBLE
         }
@@ -86,15 +86,15 @@ class AddScheduleActivity : AppCompatActivity() {
             val quantityText = edtQuantity.text.toString()
             val quantity = quantityText.toIntOrNull() ?: 0
             val days = mutableListOf<String>()
-            if (checkMon.isChecked) days.add("Monday")
-            if (checkTue.isChecked) days.add("Tuesday")
-            if (checkWed.isChecked) days.add("Wednesday")
-            if (checkThu.isChecked) days.add("Thursday")
-            if (checkFri.isChecked) days.add("Friday")
-            if (checkSat.isChecked) days.add("Saturday")
-            if (checkSun.isChecked) days.add("Sunday")
+            if (checkMon.isChecked) days.add("Thứ Hai")
+            if (checkTue.isChecked) days.add("Thứ Ba")
+            if (checkWed.isChecked) days.add("Thứ Tư")
+            if (checkThu.isChecked) days.add("Thứ Năm")
+            if (checkFri.isChecked) days.add("Thứ Sáu")
+            if (checkSat.isChecked) days.add("Thứ Bảy")
+            if (checkSun.isChecked) days.add("Chủ nhật")
             if (time.isEmpty() || days.isEmpty() || quantity <= 0) {
-                Toast.makeText(this, "Please select time, at least one day, and enter a valid quantity", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Hãy chọn thời gian sau ít nhất 1 ngày kể từ bây giờ", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
             val schedule = Schedule(selectedExercise, time, days, quantity)
@@ -109,7 +109,7 @@ class AddScheduleActivity : AppCompatActivity() {
                 scheduleList.add(schedule) // thêm mới
             }
             prefs.edit().putString("schedule_list", gson.toJson(scheduleList)).apply()
-            Toast.makeText(this, "Schedule saved!", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Lịch trình đã được lưu!", Toast.LENGTH_SHORT).show()
             finish()
         }
 
@@ -123,7 +123,7 @@ class AddScheduleActivity : AppCompatActivity() {
                 if (editIndex < scheduleList.size) {
                     scheduleList.removeAt(editIndex)
                     prefs.edit().putString("schedule_list", gson.toJson(scheduleList)).apply()
-                    Toast.makeText(this, "Schedule deleted!", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, "Lịch trình đã được xóa!", Toast.LENGTH_SHORT).show()
                 }
             }
             finish()

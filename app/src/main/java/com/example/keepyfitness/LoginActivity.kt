@@ -29,7 +29,7 @@ class LoginActivity : ComponentActivity() {
             val password = passwordEditText.text.toString().trim()
 
             if (email.isEmpty() || password.isEmpty()) {
-                Toast.makeText(this, "Please fill in all fields", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Hãy điền đầy đủ thông tin yêu cầu", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
 
@@ -44,7 +44,7 @@ class LoginActivity : ComponentActivity() {
                     if (task.isSuccessful) {
                         val user = auth.currentUser
                         if (user != null && user.isEmailVerified) {
-                            Toast.makeText(this, "Login successful", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(this, "Đăng nhập thành công.", Toast.LENGTH_SHORT).show()
 
                             // Clear intent flags to avoid navigation issues
                             val intent = Intent(this, HomeScreen::class.java)
@@ -52,11 +52,11 @@ class LoginActivity : ComponentActivity() {
                             startActivity(intent)
                             finish()
                         } else {
-                            Toast.makeText(this, "Please verify your email before logging in.", Toast.LENGTH_LONG).show()
+                            Toast.makeText(this, "Hãy xác minh email trước khi đăng nhập.", Toast.LENGTH_LONG).show()
                             auth.signOut()
                         }
                     } else {
-                        Toast.makeText(this, "Error: ${task.exception?.message}", Toast.LENGTH_LONG).show()
+                        Toast.makeText(this, "Lỗi: ${task.exception?.message}", Toast.LENGTH_LONG).show()
                     }
                 }
         }
