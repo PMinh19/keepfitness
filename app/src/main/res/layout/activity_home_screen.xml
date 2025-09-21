@@ -192,6 +192,14 @@
         app:layout_constraintTop_toBottomOf="@id/statsSection"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
+        <TextView
+            android:id="@+id/tvWeatherSuggestion"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Đang lấy gợi ý thời tiết..."
+            android:textSize="16sp"
+            android:textColor="@android:color/black"
+            android:padding="16dp"/>
 
         <!-- Start Workout Button -->
         <androidx.cardview.widget.CardView

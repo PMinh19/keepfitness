@@ -1,4 +1,5 @@
 package com.example.keepyfitness
+import android.widget.TextView
 
 import android.Manifest
 import android.content.Intent
@@ -96,21 +97,22 @@ class HomeScreen : AppCompatActivity() {
     }
 
     private fun showWeatherSuggestion() {
+        val tvSuggestion = findViewById<TextView>(R.id.tvWeatherSuggestion)
+        tvSuggestion.text = "⏳ Đang lấy gợi ý thời tiết..."
+
         try {
             val weatherHelper = WeatherHelper(this, "73371ff12e460447cff4621d4a956c22")
             weatherHelper.getWeatherSuggestion { suggestion ->
                 runOnUiThread {
-                    AlertDialog.Builder(this)
-                        .setTitle("Gợi ý tập luyện hôm nay 🌦️")
-                        .setMessage(suggestion)
-                        .setPositiveButton("OK", null)
-                        .setCancelable(true) // ✅ đảm bảo có thể đóng dialog
-                        .show()
+                    tvSuggestion.text = suggestion
                 }
             }
         } catch (e: Exception) {
             e.printStackTrace()
-            Toast.makeText(this, "Không thể lấy gợi ý thời tiết", Toast.LENGTH_SHORT).show()
+            runOnUiThread {
+                tvSuggestion.text = "❌ Không thể lấy gợi ý thời tiết"
+            }
         }
     }
+
 }
