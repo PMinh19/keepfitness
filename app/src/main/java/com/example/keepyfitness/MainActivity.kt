@@ -1,5 +1,6 @@
 package com.example.keepyfitness
 import kotlin.math.abs
+import androidx.core.content.ContextCompat
 
 import android.content.pm.PackageManager
 import android.hardware.camera2.CameraAccessException
@@ -142,10 +143,18 @@ class MainActivity : AppCompatActivity(), OnImageAvailableListener {
     private var lastTreePoseStart: Long = 0L
 
     var treePoseCount = 0
+    private var treePoseState = 0 // 0: chờ vào tư thế, 1: đang giữ, 2: chờ thoát để đếm
+    private var frameCount = 0
 
     private var treePoseHoldStart: Long = 0
-    private val TREE_HOLD_THRESHOLD_MS = 3000L
+    private val TREE_HOLD_THRESHOLD_MS = 2000L // Giảm từ 3s xuống 2s để dễ test
     private var lastTreePoseCountTime: Long = 0L
+
+    // Heart rate monitoring during workout
+    private var heartRateUpdateHandler: Handler? = null
+    private var heartRateUpdateRunnable: Runnable? = null
+    private var lastHeartRateUpdate: Long = 0L
+
     @Suppress("DEPRECATION")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -182,9 +191,14 @@ class MainActivity : AppCompatActivity(), OnImageAvailableListener {
         stopWorkoutCard = findViewById(R.id.stopWorkoutCard)
         val countCard = findViewById<android.widget.FrameLayout>(R.id.countCard) // Sửa từ CardView thành FrameLayout
 
+        // Initialize heart rate display
+        val tvHeartRate = findViewById<TextView>(R.id.tvHeartRate)
+        tvHeartRate.text = "-- BPM"
+
         setupFormFeedbackOverlay()
         setupTimer()
         setupStopWorkoutButton()
+        setupHeartRateMonitoring()
 
         // Set background cho FrameLayout thay vì CardView
         countCard.background = resources.getDrawable(R.drawable.circle_background, null)
@@ -255,10 +269,14 @@ class MainActivity : AppCompatActivity(), OnImageAvailableListener {
             2 -> squatCount
             3 -> jumpingJackCount
             4 -> plankDogCount
+            5 -> treePoseCount
             else -> 0
         }
 
         Log.d("MainActivity", "Current count: $currentCount, Target: $targetCount, Duration: $elapsedSeconds")
+
+        // Save final BPM after workout
+        saveFinalBpm(currentCount)
 
         try {
             // Navigate to results screen
@@ -647,7 +665,7 @@ class MainActivity : AppCompatActivity(), OnImageAvailableListener {
         squatState = 0; squatConsec = 0; lastSquatCountTime = 0L
         jjState = 0; jjUpConsec = 0; jjDownConsec = 0; lastJJCountTime = 0L
         plankDogState = 0; plankDogConsec = 0; lastPlankDogCountTime = 0L
-        treePoseCount = 0; isInTreePose = false; treePoseHoldStart = 0L; lastTreePoseCountTime = 0L
+        treePoseCount = 0; treePoseState = 0; treePoseHoldStart = 0L; lastTreePoseCountTime = 0L
     }
 
 
@@ -809,34 +827,189 @@ class MainActivity : AppCompatActivity(), OnImageAvailableListener {
         if (la == null || ra == null) return
 
         val diffY = abs(la.position.y - ra.position.y)
-        val threshold = previewHeight * 0.25f
+        val threshold = 20f // Fixed threshold thay vì dựa vào previewHeight
         val currentlyInPose = diffY > threshold
 
-        if (currentlyInPose) {
-            if (!isInTreePose) {
-                isInTreePose = true
-                treePoseHoldStart = System.currentTimeMillis()
-                Log.d("TreePose", "Start holding")
-            } else {
-                val holdTime = System.currentTimeMillis() - treePoseHoldStart
-                if (holdTime >= TREE_HOLD_THRESHOLD_MS) {
-                    val now = System.currentTimeMillis()
-                    if (now - lastTreePoseCountTime > TREE_HOLD_THRESHOLD_MS) {
-                        treePoseCount++
-                        lastTreePoseCountTime = now
-                        Log.d("TreePose", "COUNTED treePose=$treePoseCount")
+        val now = System.currentTimeMillis()
+
+        // Debug log
+        if (frameCount % 30 == 0) { // Log mỗi 1 giây
+            Log.d("TreePose", "diffY=$diffY, threshold=$threshold, inPose=$currentlyInPose, state=$treePoseState")
+        }
+
+        when (treePoseState) {
+            0 -> { // Chờ người dùng vào tư thế Tree Pose
+                if (currentlyInPose) {
+                    treePoseState = 1
+                    treePoseHoldStart = now
+                    Log.d("TreePose", "✅ Entered Tree Pose - diffY: $diffY")
+                }
+            }
+            1 -> { // Đang giữ tư thế Tree Pose
+                if (!currentlyInPose) {
+                    // Người dùng thoát khỏi tư thế trước khi đủ thời gian
+                    treePoseState = 0
+                    Log.d("TreePose", "❌ Exited Tree Pose too early")
+                } else {
+                    val holdTime = now - treePoseHoldStart
+                    if (holdTime >= TREE_HOLD_THRESHOLD_MS) {
+                        // Đã giữ đủ thời gian, chờ người dùng thoát khỏi tư thế
+                        treePoseState = 2
+                        Log.d("TreePose", "⏰ Held long enough (${holdTime}ms), waiting for exit")
                     }
                 }
             }
-        } else {
-            if (isInTreePose) {
-                Log.d("TreePose", "Exit pose, held ${(System.currentTimeMillis()-treePoseHoldStart)/1000}s")
+            2 -> { // Đã giữ đủ thời gian, chờ thoát khỏi tư thế để đếm
+                if (!currentlyInPose) {
+                    // Người dùng thoát khỏi tư thế, đếm 1 rep
+                    if (now - lastTreePoseCountTime > COUNT_COOLDOWN_MS) {
+                        treePoseCount++
+                        lastTreePoseCountTime = now
+                        treePoseState = 0
+                        Log.d("TreePose", "🎉 COUNTED treePose=$treePoseCount")
+                    } else {
+                        treePoseState = 0
+                        Log.d("TreePose", "⏳ Cooldown active, reset state")
+                    }
+                }
             }
-            isInTreePose = false
         }
     }
 
+    private fun setupHeartRateMonitoring() {
+        heartRateUpdateHandler = Handler(Looper.getMainLooper())
+        heartRateUpdateRunnable = object : Runnable {
+            override fun run() {
+                updateHeartRateDisplay()
+                heartRateUpdateHandler?.postDelayed(this, 5000) // Update every 5 seconds
+            }
+        }
+        heartRateUpdateHandler?.post(heartRateUpdateRunnable!!)
+    }
 
+    private fun updateHeartRateDisplay() {
+        val tvHeartRate = findViewById<TextView>(R.id.tvHeartRate)
+        try {
+            val prefs = getSharedPreferences("health_data", MODE_PRIVATE)
+            val lastBpm = prefs.getInt("last_heart_rate_bpm", -1)
+            val lastTime = prefs.getLong("last_heart_rate_time", 0L)
+
+            val now = System.currentTimeMillis()
+            val timeDiff = now - lastTime
+
+            Log.d("HeartRate", "lastBpm=$lastBpm, timeDiff=${timeDiff/1000}s, exerciseId=${exerciseDataModel.id}")
+
+            if (lastBpm > 0 && timeDiff < 300000) { // 5 minutes
+                // Get current rep count
+                val currentReps = when (exerciseDataModel.id) {
+                    1 -> pushUpCount
+                    2 -> squatCount
+                    3 -> jumpingJackCount
+                    4 -> plankDogCount
+                    5 -> treePoseCount
+                    else -> 0
+                }
+                
+                // Base BPM from HomeScreen
+                val baseBpm = lastBpm
+                
+                // Increase BPM based on reps (3-4 reps = +1 BPM)
+                val repIncrease = when (exerciseDataModel.id) {
+                    1 -> (currentReps / 3.5f).toInt() // Push-ups: ~3.5 reps = +1 BPM
+                    2 -> (currentReps / 3.0f).toInt() // Squats: ~3 reps = +1 BPM
+                    3 -> (currentReps / 4.0f).toInt() // Jumping jacks: ~4 reps = +1 BPM
+                    4 -> (currentReps / 5.0f).toInt() // Downward dog: ~5 reps = +1 BPM
+                    5 -> (currentReps / 6.0f).toInt() // Tree pose: ~6 reps = +1 BPM
+                    else -> (currentReps / 3.5f).toInt()
+                }
+                
+                val estimatedBpm = baseBpm + repIncrease
+                val displayBpm = minOf(estimatedBpm, 180) // Cap at 180 BPM
+
+                tvHeartRate.text = "$displayBpm BPM"
+                Log.d("HeartRate", "Displaying BPM: $displayBpm (base: $baseBpm, reps: $currentReps, increase: +$repIncrease)")
+
+                // Color coding based on heart rate
+                when {
+                    displayBpm < 100 -> tvHeartRate.setTextColor(ContextCompat.getColor(this, android.R.color.white))
+                    displayBpm < 140 -> tvHeartRate.setTextColor(ContextCompat.getColor(this, android.R.color.holo_orange_light))
+                    else -> tvHeartRate.setTextColor(ContextCompat.getColor(this, android.R.color.holo_red_light))
+                }
+            } else {
+                // Fallback: Show estimated BPM based on exercise type + reps
+                val currentReps = when (exerciseDataModel.id) {
+                    1 -> pushUpCount
+                    2 -> squatCount
+                    3 -> jumpingJackCount
+                    4 -> plankDogCount
+                    5 -> treePoseCount
+                    else -> 0
+                }
+                
+                val baseBpm = when (exerciseDataModel.id) {
+                    1 -> 80 // Push-ups
+                    2 -> 75 // Squats
+                    3 -> 85 // Jumping jacks
+                    4 -> 70 // Downward dog
+                    5 -> 65 // Tree pose
+                    else -> 75
+                }
+                
+                // Increase BPM based on reps (3-4 reps = +1 BPM)
+                val repIncrease = when (exerciseDataModel.id) {
+                    1 -> (currentReps / 3.5f).toInt() // Push-ups: ~3.5 reps = +1 BPM
+                    2 -> (currentReps / 3.0f).toInt() // Squats: ~3 reps = +1 BPM
+                    3 -> (currentReps / 4.0f).toInt() // Jumping jacks: ~4 reps = +1 BPM
+                    4 -> (currentReps / 5.0f).toInt() // Downward dog: ~5 reps = +1 BPM
+                    5 -> (currentReps / 6.0f).toInt() // Tree pose: ~6 reps = +1 BPM
+                    else -> (currentReps / 3.5f).toInt()
+                }
+                
+                val estimatedBpm = baseBpm + repIncrease
+                val displayBpm = minOf(estimatedBpm, 180)
+                
+                tvHeartRate.text = "~$displayBpm BPM"
+                tvHeartRate.setTextColor(ContextCompat.getColor(this, android.R.color.holo_orange_light))
+                Log.d("HeartRate", "Using estimated BPM: $displayBpm (base: $baseBpm, reps: $currentReps, increase: +$repIncrease)")
+            }
+        } catch (e: Exception) {
+            tvHeartRate.text = "-- BPM"
+            Log.e("MainActivity", "Error updating heart rate", e)
+        }
+    }
+    
+    private fun saveFinalBpm(totalReps: Int) {
+        try {
+            val prefs = getSharedPreferences("health_data", MODE_PRIVATE)
+            val lastBpm = prefs.getInt("last_heart_rate_bpm", -1)
+            
+            if (lastBpm > 0) {
+                // Calculate final BPM based on total reps
+                val repIncrease = when (exerciseDataModel.id) {
+                    1 -> (totalReps / 3.5f).toInt() // Push-ups: ~3.5 reps = +1 BPM
+                    2 -> (totalReps / 3.0f).toInt() // Squats: ~3 reps = +1 BPM
+                    3 -> (totalReps / 4.0f).toInt() // Jumping jacks: ~4 reps = +1 BPM
+                    4 -> (totalReps / 5.0f).toInt() // Downward dog: ~5 reps = +1 BPM
+                    5 -> (totalReps / 6.0f).toInt() // Tree pose: ~6 reps = +1 BPM
+                    else -> (totalReps / 3.5f).toInt()
+                }
+                
+                val finalBpm = minOf(lastBpm + repIncrease, 180)
+                
+                // Save final BPM to show on HomeScreen
+                prefs.edit()
+                    .putInt("last_heart_rate_bpm", finalBpm)
+                    .putString("last_heart_rate_status", "Sau tập luyện")
+                    .putString("last_heart_rate_suggestion", "Bạn đã hoàn thành ${totalReps} reps ${exerciseDataModel.title}")
+                    .putLong("last_heart_rate_time", System.currentTimeMillis())
+                    .apply()
+                    
+                Log.d("HeartRate", "Saved final BPM: $finalBpm (base: $lastBpm, reps: $totalReps, increase: +$repIncrease)")
+            }
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Error saving final BPM", e)
+        }
+    }
 
     fun calculateAngle(first: PoseLandmark, mid: PoseLandmark, last: PoseLandmark): Double {
         val a = distance(mid, last)
@@ -855,6 +1028,11 @@ class MainActivity : AppCompatActivity(), OnImageAvailableListener {
         super.onDestroy()
         stopTimer()
         voiceCoach.shutdown()
+
+        // Cleanup heart rate monitoring
+        heartRateUpdateHandler?.removeCallbacks(heartRateUpdateRunnable!!)
+        heartRateUpdateHandler = null
+        heartRateUpdateRunnable = null
     }
 
     override fun onPause() {
@@ -869,3 +1047,4 @@ class MainActivity : AppCompatActivity(), OnImageAvailableListener {
         }
     }
 }
+
