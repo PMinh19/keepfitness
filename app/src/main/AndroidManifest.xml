@@ -56,10 +56,12 @@
         <activity android:name=".ScheduleListActivity" android:exported="true" />
         <activity android:name=".AddScheduleActivity" android:exported="true" />
         <activity android:name=".WorkoutHistoryActivity" android:exported="true" />
+
+
         <activity
-            android:name=".WorkoutResultsActivity"
+            android:name=".HeartRateActivity"
             android:exported="false"
-            android:label="Workout Results"
+            android:label="Heart Rate"
             android:theme="@style/Theme.KeepYFitness" />
         <receiver android:name=".WorkoutNotificationReceiver" android:exported="false" />
     </application>

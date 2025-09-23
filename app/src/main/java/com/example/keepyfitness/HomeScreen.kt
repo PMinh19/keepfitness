@@ -26,6 +26,11 @@ class HomeScreen : AppCompatActivity() {
         enableEdgeToEdge()
         setContentView(R.layout.activity_home_screen)
 
+        val btnHeartRate = findViewById<LinearLayout>(R.id.btnHeartRate)
+        btnHeartRate.setOnClickListener {
+            startActivity(Intent(this, HeartRateActivity::class.java))
+        }
+
         // Áp padding cho hệ thống bar
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
@@ -74,6 +79,9 @@ class HomeScreen : AppCompatActivity() {
                 )
             }
         }
+
+        // Load heart rate suggestion on first open
+        loadHeartRateSuggestion()
     }
 
     override fun onRequestPermissionsResult(
@@ -113,6 +121,30 @@ class HomeScreen : AppCompatActivity() {
                 tvSuggestion.text = "❌ Không thể lấy gợi ý thời tiết"
             }
         }
+    }
+
+    private fun loadHeartRateSuggestion() {
+        val tvHr = findViewById<TextView>(R.id.tvHeartRateSuggestion)
+        try {
+            val prefs = getSharedPreferences("health_data", MODE_PRIVATE)
+            val bpm = prefs.getInt("last_heart_rate_bpm", -1)
+            val status = prefs.getString("last_heart_rate_status", null)
+            val suggestion = prefs.getString("last_heart_rate_suggestion", null)
+            val time = prefs.getLong("last_heart_rate_time", 0L)
+
+            if (bpm > 0 && status != null && suggestion != null && time > 0L) {
+                tvHr.text = "🫀 Nhịp tim gần nhất: ${bpm} BPM\n📊 ${status}\n💡 ${suggestion}"
+            } else {
+                tvHr.text = "🫀 Chưa có nhịp tim gần đây. Hãy đo để nhận gợi ý."
+            }
+        } catch (e: Exception) {
+            tvHr.text = "🫀 Không thể tải gợi ý nhịp tim"
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        loadHeartRateSuggestion()
     }
 
 }

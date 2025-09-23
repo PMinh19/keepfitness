@@ -11,17 +11,15 @@ android {
 
     defaultConfig {
         applicationId = "com.example.keepyfitness"
-        minSdk = 24
+        minSdk = 26   // 👈 nên nâng lên 26 vì CameraX yêu cầu API 26
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
 
         ndk {
-            // Thêm x86_64 và x86 để hỗ trợ emulator
             abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86_64", "x86")
         }
     }
-
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -50,8 +48,9 @@ android {
         kotlinCompilerExtensionVersion = "1.5.14"
     }
 }
-
 dependencies {
+    val camerax_version = "1.2.3"
+
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
@@ -89,6 +88,13 @@ dependencies {
     // Material Design
     implementation("com.google.android.material:material:1.12.0")
 
+    // CameraX
+    implementation("androidx.camera:camera-core:$camerax_version")
+    implementation("androidx.camera:camera-camera2:$camerax_version")
+    implementation("androidx.camera:camera-lifecycle:$camerax_version")
+    implementation("androidx.camera:camera-view:$camerax_version")
+    implementation("androidx.camera:camera-extensions:$camerax_version")
+
     // Test dependencies
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
@@ -100,4 +106,6 @@ dependencies {
 
     implementation("com.google.android.gms:play-services-location:21.3.0")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("org.tensorflow:tensorflow-lite:2.12.0")
+    implementation("org.tensorflow:tensorflow-lite-gpu:2.12.0")
 }
