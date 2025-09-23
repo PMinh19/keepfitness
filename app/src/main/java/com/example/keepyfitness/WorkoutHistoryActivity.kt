@@ -81,13 +81,13 @@ class WorkoutHistoryActivity : AppCompatActivity() {
 
     private fun showClearHistoryConfirmationDialog() {
         AlertDialog.Builder(this)
-            .setTitle("Clear Workout History")
-            .setMessage("Are you sure you want to delete all workout history? This action cannot be undone.")
+            .setTitle("Xóa lịch sử tập luyện")
+            .setMessage("Bạn có chắc chắn muốn xóa toàn bộ lịch sử tập luyện không? Hành động này không thể hoàn tác.")
             .setIcon(android.R.drawable.ic_dialog_alert)
-            .setPositiveButton("Delete All") { _, _ ->
+            .setPositiveButton("Xóa tất cả") { _, _ ->
                 clearAllHistory()
             }
-            .setNegativeButton("Cancel", null)
+            .setNegativeButton("Hủy ", null)
             .show()
     }
 
@@ -105,8 +105,8 @@ class WorkoutHistoryActivity : AppCompatActivity() {
 
         // Hiển thị thông báo thành công
         AlertDialog.Builder(this)
-            .setTitle("History Cleared")
-            .setMessage("All workout history has been successfully deleted.")
+            .setTitle("Lịch sử đã được xóa")
+            .setMessage("Tất cả lịch sử tập luyện đã được xóa thành công.")
             .setIcon(android.R.drawable.ic_dialog_info)
             .setPositiveButton("OK", null)
             .show()
