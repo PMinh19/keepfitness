@@ -66,6 +66,10 @@ class HomeScreen : AppCompatActivity() {
         btnViewHistory.setOnClickListener {
             startActivity(Intent(this, WorkoutHistoryActivity::class.java))
         }
+//        val btnScanCalo = findViewById<LinearLayout>(R.id.btnScanCalo)
+//        btnScanCalo.setOnClickListener {
+//            startActivity(Intent(this, fruitcalo::class.java))
+//        }
 
         // Yêu cầu quyền thông báo cho Android 13+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {

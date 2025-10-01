@@ -5,23 +5,31 @@ import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.SetOptions
+import android.widget.EditText
+import com.google.android.material.button.MaterialButton
+import android.widget.TextView
+import com.google.firebase.firestore.DocumentSnapshot
 
 class LoginActivity : ComponentActivity() {
 
     private lateinit var auth: FirebaseAuth
+    private lateinit var db: FirebaseFirestore
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_login)
 
-        // Initialize FirebaseAuth
+        // Initialize FirebaseAuth and Firestore
         auth = FirebaseAuth.getInstance()
+        db = FirebaseFirestore.getInstance()
 
-        val emailEditText = findViewById<android.widget.EditText>(R.id.emailEditText)
-        val passwordEditText = findViewById<android.widget.EditText>(R.id.passwordEditText)
-        val loginButton = findViewById<com.google.android.material.button.MaterialButton>(R.id.loginButton)
-        val registerTextView = findViewById<android.widget.TextView>(R.id.registerTextView)
-        val forgotPasswordTextView = findViewById<android.widget.TextView>(R.id.forgotPasswordTextView)
+        val emailEditText = findViewById<EditText>(R.id.emailEditText)
+        val passwordEditText = findViewById<EditText>(R.id.passwordEditText)
+        val loginButton = findViewById<MaterialButton>(R.id.loginButton)
+        val registerTextView = findViewById<TextView>(R.id.registerTextView)
+        val forgotPasswordTextView = findViewById<TextView>(R.id.forgotPasswordTextView)
         forgotPasswordTextView.paint.isUnderlineText = true
 
         loginButton.setOnClickListener {
@@ -44,6 +52,8 @@ class LoginActivity : ComponentActivity() {
                     if (task.isSuccessful) {
                         val user = auth.currentUser
                         if (user != null && user.isEmailVerified) {
+                            // Tạo hoặc cập nhật dữ liệu user trong Firestore
+                            checkAndUpdateUserDatabase(user.uid, email)
                             Toast.makeText(this, "Đăng nhập thành công.", Toast.LENGTH_SHORT).show()
 
                             // Clear intent flags to avoid navigation issues
@@ -67,6 +77,25 @@ class LoginActivity : ComponentActivity() {
 
         forgotPasswordTextView.setOnClickListener {
             startActivity(Intent(this, ResetPasswordActivity::class.java))
+        }
+    }
+
+    private fun checkAndUpdateUserDatabase(uid: String, email: String) {
+        val userRef = db.collection("users").document(uid)
+        userRef.get().addOnSuccessListener { document: DocumentSnapshot ->
+            if (!document.exists()) {
+                val userData = hashMapOf(
+                    "email" to email,
+                    "role" to "user"
+                )
+                userRef.set(userData, SetOptions.merge()).addOnSuccessListener {
+                    Toast.makeText(this, "Đã tạo CSDL user", Toast.LENGTH_SHORT).show()
+                }.addOnFailureListener { e ->
+                    Toast.makeText(this, "Lỗi tạo CSDL: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+        }.addOnFailureListener { e ->
+            Toast.makeText(this, "Lỗi kiểm tra CSDL: ${e.message}", Toast.LENGTH_LONG).show()
         }
     }
 }

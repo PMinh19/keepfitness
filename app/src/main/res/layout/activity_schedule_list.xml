@@ -3,7 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/home_gradient_background">
+    android:background="@drawable/background">
 
     <!-- Header Section -->
     <androidx.cardview.widget.CardView
@@ -188,7 +188,7 @@
 
     </LinearLayout>
 
-    <!-- Schedules List Container -->
+    <!-- Schedules Container -->
     <androidx.cardview.widget.CardView
         android:layout_width="0dp"
         android:layout_height="0dp"
@@ -207,17 +207,35 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:orientation="vertical"
-            android:padding="20dp">
+            android:orientation="vertical">
 
-            <TextView
-                android:layout_width="wrap_content"
+            <!-- Section Header -->
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="📋 Kế hoạch luyện tập của bạn"
-                android:textSize="18sp"
-                android:textStyle="bold"
-                android:textColor="#2E7D32"
-                android:layout_marginBottom="16dp" />
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:padding="20dp"
+                android:paddingBottom="12dp">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="📋 Kế hoạch luyện tập của bạn"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:textColor="#2E7D32" />
+
+            </LinearLayout>
+
+            <!-- Divider -->
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="#E0E0E0"
+                android:layout_marginStart="20dp"
+                android:layout_marginEnd="20dp" />
 
             <!-- Empty State -->
             <LinearLayout
@@ -226,6 +244,7 @@
                 android:layout_height="match_parent"
                 android:orientation="vertical"
                 android:gravity="center"
+                android:padding="20dp"
                 android:visibility="gone">
 
                 <androidx.cardview.widget.CardView
@@ -276,16 +295,20 @@
 
             </LinearLayout>
 
-            <!-- Schedules ListView -->
-            <ListView
-                android:id="@+id/scheduleListView"
+            <!-- Schedules List -->
+            <ScrollView
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:divider="@android:color/transparent"
-                android:dividerHeight="12dp"
-                android:scrollbars="vertical"
-                android:fadingEdge="vertical"
-                android:requiresFadingEdge="vertical" />
+                android:padding="20dp"
+                android:paddingTop="12dp">
+
+                <LinearLayout
+                    android:id="@+id/scheduleListContainer"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical" />
+
+            </ScrollView>
 
         </LinearLayout>
 

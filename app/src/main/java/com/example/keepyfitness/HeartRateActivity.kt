@@ -312,17 +312,19 @@ class HeartRateActivity : AppCompatActivity(), SurfaceHolder.Callback {
         val status = when {
             finalBpm < 60 -> "Nhịp tim chậm"
             finalBpm in 60..100 -> "Nhịp tim bình thường"
-            finalBpm > 100 -> "Nhịp tim nhanh "
-            else -> "Không đo được"
+            finalBpm in 101..120 -> "Nhịp tim nhanh"
+            finalBpm in 121..130 -> "Nhịp tim rất nhanh"
+            else -> "Kết quả bất thường (>130 BPM)"
         }
 
-        // Build training suggestion based on heart rate
+
         val suggestion = when {
             finalBpm <= 0 -> "Chưa có dữ liệu nhịp tim. Hãy đo lại."
             finalBpm < 60 -> "Bạn có thể tập Downward Dog hoặc Đứng một chân hoặc Dang tay chân."
             finalBpm in 60..100 -> "Bạn có thể tập Squat hoặc Chống đẩy."
             finalBpm in 101..120 -> "Bạn nên thư giãn."
-            else -> "Bạn nên nghỉ ngơi, không tập và nếu cảm thấy không khỏe hãy đi khám bác sĩ."
+            finalBpm in 121..130 -> "Bạn nên nghỉ ngơi, hạn chế vận động mạnh."
+            else -> "⚠️ Kết quả bất thường. Vui lòng đo lại cho chính xác."
         }
 
 

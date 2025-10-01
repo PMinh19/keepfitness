@@ -5,17 +5,22 @@ import android.os.Bundle
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.SetOptions
+import com.google.firebase.firestore.DocumentSnapshot
 
 class RegisterActivity : AppCompatActivity() {
 
     private lateinit var auth: FirebaseAuth
+    private lateinit var db: FirebaseFirestore
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_register)
 
-        // Initialize FirebaseAuth
+        // Initialize FirebaseAuth and Firestore
         auth = FirebaseAuth.getInstance()
+        db = FirebaseFirestore.getInstance()
 
         val emailEditText = findViewById<EditText>(R.id.emailEditText)
         val passwordEditText = findViewById<EditText>(R.id.passwordEditText)
@@ -50,6 +55,10 @@ class RegisterActivity : AppCompatActivity() {
                                 Toast.makeText(this, "Failed to send verification email.", Toast.LENGTH_LONG).show()
                             }
                         }
+                        // Tạo hoặc cập nhật dữ liệu user trong Firestore
+                        if (user != null) {
+                            createUserDatabase(user.uid, email)
+                        }
                         val intent = Intent(this, LoginActivity::class.java)
                         startActivity(intent)
                         finish()
@@ -63,6 +72,25 @@ class RegisterActivity : AppCompatActivity() {
         loginTextView.setOnClickListener {
             startActivity(Intent(this, LoginActivity::class.java))
             finish()
+        }
+    }
+
+    private fun createUserDatabase(uid: String, email: String) {
+        val userRef = db.collection("users").document(uid)
+        userRef.get().addOnSuccessListener { document: DocumentSnapshot ->
+            if (!document.exists()) {
+                val userData = hashMapOf(
+                    "email" to email,
+                    "role" to "user"
+                )
+                userRef.set(userData, SetOptions.merge()).addOnSuccessListener {
+                    Toast.makeText(this, "Đã tạo CSDL user", Toast.LENGTH_SHORT).show()
+                }.addOnFailureListener { e ->
+                    Toast.makeText(this, "Lỗi tạo CSDL: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+        }.addOnFailureListener { e ->
+            Toast.makeText(this, "Lỗi kiểm tra CSDL: ${e.message}", Toast.LENGTH_LONG).show()
         }
     }
 }
