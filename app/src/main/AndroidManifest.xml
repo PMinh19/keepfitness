@@ -72,7 +72,7 @@
             android:label="Heart Rate"
             android:theme="@style/Theme.KeepYFitness" />
         <receiver android:name=".WorkoutNotificationReceiver" android:exported="false" />
-        <activity android:name=".fruitcalo" android:exported="true" />
+        <activity android:name=".HeartRateHistoryActivity" android:exported="true"/>
 
         <provider
             android:name="androidx.core.content.FileProvider"

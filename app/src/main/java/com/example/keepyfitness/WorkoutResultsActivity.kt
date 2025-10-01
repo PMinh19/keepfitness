@@ -8,7 +8,10 @@ import androidx.appcompat.app.AppCompatActivity
 import com.bumptech.glide.Glide
 import com.example.keepyfitness.Model.ExerciseDataModel
 import com.example.keepyfitness.Model.WorkoutHistory
+import com.example.keepyfitness.Model.PersonalRecord
 import com.google.android.material.button.MaterialButton
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import java.text.SimpleDateFormat
@@ -21,10 +24,16 @@ class WorkoutResultsActivity : AppCompatActivity() {
     private var targetCount: Int = 0
     private var workoutDuration: Long = 0 // in seconds
     private var caloriesBurned: Double = 0.0
+    private lateinit var auth: FirebaseAuth
+    private lateinit var db: FirebaseFirestore
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_workout_results)
+
+        // Initialize Firebase
+        auth = FirebaseAuth.getInstance()
+        db = FirebaseFirestore.getInstance()
 
         // Get data from intent
         exerciseDataModel = intent.getSerializableExtra("exercise_data") as ExerciseDataModel
@@ -36,6 +45,7 @@ class WorkoutResultsActivity : AppCompatActivity() {
         caloriesBurned = calculateCalories(exerciseDataModel.id, completedCount, workoutDuration)
 
         setupUI()
+        migrateLocalDataToFirestore() // Migrate dữ liệu cũ
         saveWorkoutHistory()
     }
 
@@ -125,6 +135,7 @@ class WorkoutResultsActivity : AppCompatActivity() {
 
     private fun saveWorkoutHistory() {
         val workoutHistory = WorkoutHistory(
+            id = System.currentTimeMillis().toString(), // Đảm bảo ID duy nhất
             exerciseId = exerciseDataModel.id,
             exerciseName = exerciseDataModel.title,
             count = completedCount,
@@ -135,6 +146,7 @@ class WorkoutResultsActivity : AppCompatActivity() {
             isCompleted = completedCount >= targetCount
         )
 
+        // Lưu vào SharedPreferences (giữ nguyên để tương thích)
         val prefs = getSharedPreferences("workout_history", MODE_PRIVATE)
         val gson = Gson()
         val type = object : TypeToken<MutableList<WorkoutHistory>>() {}.type
@@ -144,8 +156,109 @@ class WorkoutResultsActivity : AppCompatActivity() {
         } else {
             mutableListOf()
         }
-
         historyList.add(workoutHistory)
         prefs.edit().putString("history_list", gson.toJson(historyList)).apply()
+
+        // Lưu vào Firestore
+        val user = auth.currentUser
+        if (user != null) {
+            db.collection("users").document(user.uid).collection("workouts")
+                .document(workoutHistory.id)
+                .set(workoutHistory)
+                .addOnSuccessListener {
+                    // Cập nhật personal record
+                    updatePersonalRecord(workoutHistory)
+                }
+                .addOnFailureListener { e ->
+                    android.widget.Toast.makeText(this, "Lỗi lưu lịch sử: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
+                }
+        } else {
+            android.widget.Toast.makeText(this, "Vui lòng đăng nhập.", android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun updatePersonalRecord(workout: WorkoutHistory) {
+        val user = auth.currentUser ?: return
+        val recordRef = db.collection("users").document(user.uid)
+            .collection("personalRecords").document(workout.exerciseId.toString())
+
+        // Lấy record hiện tại
+        recordRef.get().addOnSuccessListener { document ->
+            val existingRecord = document.toObject(PersonalRecord::class.java)
+            val newRecord = if (existingRecord == null) {
+                PersonalRecord(
+                    exerciseId = workout.exerciseId,
+                    exerciseName = workout.exerciseName,
+                    maxCount = workout.count,
+                    bestDate = workout.date,
+                    totalWorkouts = 1,
+                    averageCount = workout.count.toDouble()
+                )
+            } else {
+                val newTotalWorkouts = existingRecord.totalWorkouts + 1
+                val newAverageCount = ((existingRecord.averageCount * existingRecord.totalWorkouts) + workout.count) / newTotalWorkouts
+                PersonalRecord(
+                    exerciseId = workout.exerciseId,
+                    exerciseName = workout.exerciseName,
+                    maxCount = maxOf(existingRecord.maxCount, workout.count),
+                    bestDate = if (workout.count > existingRecord.maxCount) workout.date else existingRecord.bestDate,
+                    totalWorkouts = newTotalWorkouts,
+                    averageCount = newAverageCount
+                )
+            }
+
+            // Lưu hoặc update record
+            recordRef.set(newRecord)
+                .addOnFailureListener { e ->
+                    android.widget.Toast.makeText(this, "Lỗi cập nhật PR: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
+                }
+        }.addOnFailureListener { e ->
+            android.widget.Toast.makeText(this, "Lỗi tải PR: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun migrateLocalDataToFirestore() {
+        val prefs = getSharedPreferences("workout_history", MODE_PRIVATE)
+        val historyJson = prefs.getString("history_list", null)
+        if (historyJson != null) {
+            val gson = Gson()
+            val type = object : TypeToken<List<WorkoutHistory>>() {}.type
+            val historyList: List<WorkoutHistory> = gson.fromJson(historyJson, type)
+            val user = auth.currentUser
+            if (user != null) {
+                val batch = db.batch()
+                historyList.forEach { workout ->
+                    batch.set(
+                        db.collection("users").document(user.uid).collection("workouts").document(workout.id),
+                        workout
+                    )
+                }
+                batch.commit().addOnSuccessListener {
+                    // Migrate personal records
+                    historyList.groupBy { it.exerciseId }.forEach { (exerciseId, workouts) ->
+                        val maxCount = workouts.maxByOrNull { it.count }
+                        if (maxCount != null) {
+                            val totalWorkouts = workouts.size
+                            val averageCount = workouts.map { it.count }.average()
+                            val newRecord = PersonalRecord(
+                                exerciseId = exerciseId,
+                                exerciseName = maxCount.exerciseName,
+                                maxCount = maxCount.count,
+                                bestDate = maxCount.date,
+                                totalWorkouts = totalWorkouts,
+                                averageCount = averageCount
+                            )
+                            db.collection("users").document(user.uid).collection("personalRecords")
+                                .document(exerciseId.toString())
+                                .set(newRecord)
+                        }
+                    }
+                    // Không xóa local data để đảm bảo tương thích
+                    // prefs.edit().remove("history_list").apply()
+                }.addOnFailureListener { e ->
+                    android.widget.Toast.makeText(this, "Lỗi migrate dữ liệu: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
+                }
+            }
+        }
     }
 }

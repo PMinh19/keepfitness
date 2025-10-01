@@ -1,6 +1,7 @@
 package com.example.keepyfitness
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.*
 import android.hardware.Camera
@@ -13,6 +14,11 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import com.example.keepyfitness.Model.HeartRateData
+import com.google.android.material.button.MaterialButton
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.analytics.FirebaseAnalytics // Thêm Analytics
 import org.tensorflow.lite.Interpreter
 import java.io.IOException
 import java.nio.ByteBuffer
@@ -39,6 +45,11 @@ class HeartRateActivity : AppCompatActivity(), SurfaceHolder.Callback {
     private val handler = Handler(Looper.getMainLooper())
     private var startTime = 0L
 
+    // Firebase
+    private lateinit var auth: FirebaseAuth
+    private lateinit var db: FirebaseFirestore
+    private lateinit var analytics: FirebaseAnalytics // Thêm Analytics
+
     companion object {
         private const val TAG = "HeartRateActivity"
         private const val REQUEST_CODE_PERMISSIONS = 10
@@ -48,6 +59,11 @@ class HeartRateActivity : AppCompatActivity(), SurfaceHolder.Callback {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_heart_rate_simple)
+
+        // Initialize Firebase
+        auth = FirebaseAuth.getInstance()
+        db = FirebaseFirestore.getInstance()
+        analytics = FirebaseAnalytics.getInstance(this) // Khởi tạo Analytics
 
         try {
             heartRateText = findViewById(R.id.tvHeartRate)
@@ -59,6 +75,9 @@ class HeartRateActivity : AppCompatActivity(), SurfaceHolder.Callback {
             // Load TensorFlow Lite model
             loadTensorFlowModel()
 
+            // Migrate local data to Firestore
+            migrateLocalDataToFirestore()
+
             if (allPermissionsGranted()) {
                 updateUI("📱 Đặt ngón tay lên camera sau")
             } else {
@@ -69,6 +88,41 @@ class HeartRateActivity : AppCompatActivity(), SurfaceHolder.Callback {
             Log.e(TAG, "Error in onCreate", e)
             showError("Lỗi khởi tạo: ${e.message}")
             finish()
+        }
+    }
+
+    private fun migrateLocalDataToFirestore() {
+        val prefs = getSharedPreferences("health_data", MODE_PRIVATE)
+        val bpm = prefs.getInt("last_heart_rate_bpm", 0)
+        val status = prefs.getString("last_heart_rate_status", null)
+        val suggestion = prefs.getString("last_heart_rate_suggestion", null)
+        val timestamp = prefs.getLong("last_heart_rate_time", 0L)
+
+        if (bpm > 0 && status != null && suggestion != null && timestamp > 0) {
+            val user = auth.currentUser
+            if (user != null) {
+                val heartRateData = HeartRateData(
+                    id = timestamp.toString(), // Dùng timestamp làm ID
+                    bpm = bpm,
+                    status = status,
+                    suggestion = suggestion,
+                    timestamp = timestamp,
+                    duration = 0L // Không có duration trong local, để mặc định
+                )
+
+                db.collection("users").document(user.uid).collection("healthMetrics")
+                    .document(heartRateData.id)
+                    .set(heartRateData)
+                    .addOnSuccessListener {
+                        Log.d(TAG, "Migrated local heart rate data to Firestore")
+                        // Không xóa local để tương thích
+                        // prefs.edit().clear().apply()
+                    }
+                    .addOnFailureListener { e ->
+                        Log.e(TAG, "Error migrating heart rate data", e)
+                        Toast.makeText(this, "Lỗi migrate dữ liệu: ${e.message}", Toast.LENGTH_LONG).show()
+                    }
+            }
         }
     }
 
@@ -139,6 +193,9 @@ class HeartRateActivity : AppCompatActivity(), SurfaceHolder.Callback {
 
                 cam.startPreview()
                 updateUI("💗 Đang đo nhịp tim... Giữ ngón tay yên")
+
+                // Track sự kiện bắt đầu đo
+                analytics.logEvent("start_heart_rate_measurement", Bundle())
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error starting camera", e)
@@ -180,21 +237,18 @@ class HeartRateActivity : AppCompatActivity(), SurfaceHolder.Callback {
     }
 
     private fun calculateAverageRedValue(data: ByteArray, width: Int, height: Int): Double {
-        // YUV420 format: Y plane followed by U and V planes
         var redSum = 0.0
         var pixelCount = 0
 
-        // Sample center region (heart rate is best detected from fingertip)
         val centerX = width / 2
         val centerY = height / 2
-        val sampleSize = Math.min(width, height) / 4 // 1/4 of the smaller dimension
+        val sampleSize = Math.min(width, height) / 4
 
         for (y in (centerY - sampleSize / 2) until (centerY + sampleSize / 2)) {
             for (x in (centerX - sampleSize / 2) until (centerX + sampleSize / 2)) {
                 if (x >= 0 && x < width && y >= 0 && y < height) {
                     val index = y * width + x
                     if (index < data.size) {
-                        // Y value represents luminance
                         val yValue = data[index].toInt() and 0xFF
                         redSum += yValue
                         pixelCount++
@@ -207,20 +261,14 @@ class HeartRateActivity : AppCompatActivity(), SurfaceHolder.Callback {
     }
 
     private fun calculateHeartRateFromRedValues(): Int {
-        if (redValuesList.size < 60) return 0 // Need at least 2 seconds of data
+        if (redValuesList.size < 60) return 0
 
         try {
-            // Use recent values for calculation
-            val recentValues = redValuesList.takeLast(90) // Last 3 seconds
-
-            // Apply simple bandpass filter (0.5-4 Hz for heart rate)
+            val recentValues = redValuesList.takeLast(90)
             val filteredValues = applySimpleBandpassFilter(recentValues)
-
-            // Find peaks
             val peaks = findPeaks(filteredValues)
 
             if (peaks.size >= 2) {
-                // Calculate average interval between peaks
                 val intervals = mutableListOf<Double>()
                 for (i in 1 until peaks.size) {
                     intervals.add((peaks[i] - peaks[i - 1]).toDouble())
@@ -228,15 +276,12 @@ class HeartRateActivity : AppCompatActivity(), SurfaceHolder.Callback {
 
                 if (intervals.isNotEmpty()) {
                     val avgInterval = intervals.average()
-                    val fps = 30.0 // Assuming 30 FPS
+                    val fps = 30.0
                     val bpm = (60.0 * fps / avgInterval).roundToInt()
-
-                    // Validate heart rate range
                     return if (bpm in 40..200) bpm else 0
                 }
             }
 
-            // Fallback: Use TensorFlow model if available
             return useTensorFlowForHeartRate(recentValues)
 
         } catch (e: Exception) {
@@ -246,7 +291,6 @@ class HeartRateActivity : AppCompatActivity(), SurfaceHolder.Callback {
     }
 
     private fun applySimpleBandpassFilter(values: List<Double>): List<Double> {
-        // Simple moving average to smooth the signal
         val windowSize = 5
         val smoothed = mutableListOf<Double>()
 
@@ -277,17 +321,14 @@ class HeartRateActivity : AppCompatActivity(), SurfaceHolder.Callback {
         return try {
             if (tflite == null || values.size < 36) return 0
 
-            // Prepare input for TensorFlow model (36x36x3)
             val inputArray = Array(1) { Array(36) { Array(36) { FloatArray(3) } } }
-
-            // Convert signal values to image-like format
             for (i in 0 until 36) {
                 for (j in 0 until 36) {
                     val valueIndex = (i * 36 + j) % values.size
                     val normalizedValue = (values[valueIndex] / 255.0).toFloat()
-                    inputArray[0][i][j][0] = normalizedValue // Red channel
-                    inputArray[0][i][j][1] = normalizedValue // Green channel
-                    inputArray[0][i][j][2] = normalizedValue // Blue channel
+                    inputArray[0][i][j][0] = normalizedValue
+                    inputArray[0][i][j][1] = normalizedValue
+                    inputArray[0][i][j][2] = normalizedValue
                 }
             }
 
@@ -317,7 +358,6 @@ class HeartRateActivity : AppCompatActivity(), SurfaceHolder.Callback {
             else -> "Kết quả bất thường (>130 BPM)"
         }
 
-
         val suggestion = when {
             finalBpm <= 0 -> "Chưa có dữ liệu nhịp tim. Hãy đo lại."
             finalBpm < 60 -> "Bạn có thể tập Downward Dog hoặc Đứng một chân hoặc Dang tay chân."
@@ -327,8 +367,7 @@ class HeartRateActivity : AppCompatActivity(), SurfaceHolder.Callback {
             else -> "⚠️ Kết quả bất thường. Vui lòng đo lại cho chính xác."
         }
 
-
-        // Persist result for HomeScreen suggestion
+        // Lưu vào SharedPreferences
         try {
             val prefs = getSharedPreferences("health_data", MODE_PRIVATE)
             prefs.edit()
@@ -338,8 +377,19 @@ class HeartRateActivity : AppCompatActivity(), SurfaceHolder.Callback {
                 .putLong("last_heart_rate_time", System.currentTimeMillis())
                 .apply()
         } catch (e: Exception) {
-            Log.e(TAG, "Error saving heart rate result", e)
+            Log.e(TAG, "Error saving heart rate result to local", e)
         }
+
+        // Lưu vào Firestore
+        saveHeartRateToFirestore(finalBpm, status, suggestion, elapsedTime)
+
+        // Track sự kiện đo hoàn tất
+        val bundle = Bundle().apply {
+            putInt("bpm", finalBpm)
+            putString("status", status)
+            putLong("duration", elapsedTime)
+        }
+        analytics.logEvent("complete_heart_rate_measurement", bundle)
 
         val result = if (finalBpm > 0) {
             "✅ Kết quả đo nhịp tim\n\n" +
@@ -362,10 +412,40 @@ class HeartRateActivity : AppCompatActivity(), SurfaceHolder.Callback {
             if (finalBpm > 0) "Đo thành công: ${finalBpm} BPM"
             else "Đo không thành công", Toast.LENGTH_LONG).show()
 
+        // Mở HeartRateHistoryActivity
+        val intent = Intent(this, HeartRateHistoryActivity::class.java)
+        startActivity(intent)
+
         // Auto close after 5 seconds
         handler.postDelayed({
             if (!isDestroyed) finish()
         }, 5000)
+    }
+
+    private fun saveHeartRateToFirestore(bpm: Int, status: String, suggestion: String, duration: Long) {
+        val user = auth.currentUser
+        if (user != null) {
+            val heartRateData = HeartRateData(
+                bpm = bpm,
+                status = status,
+                suggestion = suggestion,
+                timestamp = System.currentTimeMillis(),
+                duration = duration
+            )
+
+            db.collection("users").document(user.uid).collection("healthMetrics")
+                .document(heartRateData.id)
+                .set(heartRateData)
+                .addOnSuccessListener {
+                    Log.d(TAG, "Heart rate data saved to Firestore")
+                }
+                .addOnFailureListener { e ->
+                    Log.e(TAG, "Error saving heart rate to Firestore", e)
+                    Toast.makeText(this, "Lỗi lưu heart rate: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+        } else {
+            Log.w(TAG, "User not logged in, skipping Firestore save")
+        }
     }
 
     private fun stopCamera() {

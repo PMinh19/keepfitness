@@ -1,25 +1,25 @@
 package com.example.keepyfitness.Model
 
+import com.google.firebase.firestore.PropertyName
 import java.io.Serializable
-import java.util.Date
 
 data class WorkoutHistory(
-    val id: String = System.currentTimeMillis().toString(),
-    val exerciseId: Int,
-    val exerciseName: String,
-    val count: Int,
-    val targetCount: Int,
-    val date: Long = System.currentTimeMillis(),
-    val duration: Long, // in seconds
-    val caloriesBurned: Double = 0.0,
-    val isCompleted: Boolean = false
+    @PropertyName("id") val id: String = System.currentTimeMillis().toString(),
+    @PropertyName("exerciseId") val exerciseId: Int = 0,
+    @PropertyName("exerciseName") val exerciseName: String = "",
+    @PropertyName("count") val count: Int = 0,
+    @PropertyName("targetCount") val targetCount: Int = 0,
+    @PropertyName("date") val date: Long = System.currentTimeMillis(),
+    @PropertyName("duration") val duration: Long = 0L,
+    @PropertyName("caloriesBurned") val caloriesBurned: Double = 0.0,
+    @PropertyName("isCompleted") val isCompleted: Boolean = false
 ) : Serializable
 
 data class PersonalRecord(
-    val exerciseId: Int,
-    val exerciseName: String,
-    val maxCount: Int,
-    val bestDate: Long,
-    val totalWorkouts: Int,
-    val averageCount: Double
+    @PropertyName("exerciseId") val exerciseId: Int = 0,
+    @PropertyName("exerciseName") val exerciseName: String = "",
+    @PropertyName("maxCount") val maxCount: Int = 0,
+    @PropertyName("bestDate") val bestDate: Long = 0L,
+    @PropertyName("totalWorkouts") val totalWorkouts: Int = 0,
+    @PropertyName("averageCount") val averageCount: Double = 0.0
 ) : Serializable

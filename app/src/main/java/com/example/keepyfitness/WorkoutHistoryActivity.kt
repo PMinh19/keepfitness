@@ -22,6 +22,9 @@ import com.github.mikephil.charting.formatter.IndexAxisValueFormatter
 import com.github.mikephil.charting.utils.ColorTemplate
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.tabs.TabLayout
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.Query
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import java.text.SimpleDateFormat
@@ -36,16 +39,21 @@ class WorkoutHistoryActivity : AppCompatActivity() {
     private lateinit var weeklyChart: BarChart
     private lateinit var pieChart: PieChart
     private lateinit var btnClearHistory: MaterialButton
-
-    private val gson = Gson()
+    private lateinit var auth: FirebaseAuth
+    private lateinit var db: FirebaseFirestore
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_workout_history)
 
+        // Initialize Firebase
+        auth = FirebaseAuth.getInstance()
+        db = FirebaseFirestore.getInstance()
+
         initViews()
         setupTabs()
         setupClearHistoryButton()
+        migrateLocalDataToFirestore() // Thêm: Migrate dữ liệu cũ
         loadHistoryData()
     }
 
@@ -81,35 +89,75 @@ class WorkoutHistoryActivity : AppCompatActivity() {
 
     private fun showClearHistoryConfirmationDialog() {
         AlertDialog.Builder(this)
-            .setTitle("Xóa lịch sử tập luyện")
-            .setMessage("Bạn có chắc chắn muốn xóa toàn bộ lịch sử tập luyện không? Hành động này không thể hoàn tác.")
+            .setTitle("Clear Workout History")
+            .setMessage("Are you sure you want to delete all workout history? This action cannot be undone.")
             .setIcon(android.R.drawable.ic_dialog_alert)
-            .setPositiveButton("Xóa tất cả") { _, _ ->
+            .setPositiveButton("Delete All") { _, _ ->
                 clearAllHistory()
             }
-            .setNegativeButton("Hủy ", null)
+            .setNegativeButton("Cancel", null)
             .show()
     }
 
     private fun clearAllHistory() {
-        // Xóa dữ liệu từ SharedPreferences
-        val prefs = getSharedPreferences("workout_history", MODE_PRIVATE)
-        val editor = prefs.edit()
-        editor.remove("history_list")
-        editor.apply()
-
-        // Refresh lại giao diện
-        loadHistoryData()
-        setupCharts()
-        loadPersonalRecords()
-
-        // Hiển thị thông báo thành công
-        AlertDialog.Builder(this)
-            .setTitle("Lịch sử đã được xóa")
-            .setMessage("Tất cả lịch sử tập luyện đã được xóa thành công.")
-            .setIcon(android.R.drawable.ic_dialog_info)
-            .setPositiveButton("OK", null)
-            .show()
+        val user = auth.currentUser
+        if (user != null) {
+            // Xóa workouts từ Firestore
+            db.collection("users").document(user.uid).collection("workouts")
+                .get()
+                .addOnSuccessListener { documents ->
+                    val batch = db.batch()
+                    documents.forEach { batch.delete(it.reference) }
+                    batch.commit().addOnSuccessListener {
+                        // Xóa personal records
+                        db.collection("users").document(user.uid).collection("personalRecords")
+                            .get()
+                            .addOnSuccessListener { recordDocs ->
+                                val recordBatch = db.batch() // Sửa: Dùng recordBatch đúng
+                                recordDocs.forEach { recordBatch.delete(it.reference) } // Sửa: Dùng recordBatch
+                                recordBatch.commit().addOnSuccessListener {
+                                    // Xóa local để đồng bộ
+                                    val prefs = getSharedPreferences("workout_history", MODE_PRIVATE)
+                                    prefs.edit().remove("history_list").apply()
+                                    // Refresh giao diện
+                                    loadHistoryData()
+                                    setupCharts()
+                                    loadPersonalRecords()
+                                    AlertDialog.Builder(this)
+                                        .setTitle("History Cleared")
+                                        .setMessage("All workout history has been successfully deleted.")
+                                        .setIcon(android.R.drawable.ic_dialog_info)
+                                        .setPositiveButton("OK", null)
+                                        .show()
+                                }.addOnFailureListener { e ->
+                                    AlertDialog.Builder(this)
+                                        .setTitle("Error")
+                                        .setMessage("Failed to clear personal records: ${e.message}")
+                                        .setPositiveButton("OK", null)
+                                        .show()
+                                }
+                            }.addOnFailureListener { e ->
+                                AlertDialog.Builder(this)
+                                    .setTitle("Error")
+                                    .setMessage("Failed to clear history: ${e.message}")
+                                    .setPositiveButton("OK", null)
+                                    .show()
+                            }
+                    }.addOnFailureListener { e ->
+                        AlertDialog.Builder(this)
+                            .setTitle("Error")
+                            .setMessage("Failed to clear history: ${e.message}")
+                            .setPositiveButton("OK", null)
+                            .show()
+                    }
+                }
+        } else {
+            AlertDialog.Builder(this)
+                .setTitle("Error")
+                .setMessage("Please log in to clear history.")
+                .setPositiveButton("OK", null)
+                .show()
+        }
     }
 
     private fun showHistoryView() {
@@ -133,17 +181,25 @@ class WorkoutHistoryActivity : AppCompatActivity() {
     }
 
     private fun loadHistoryData() {
-        val prefs = getSharedPreferences("workout_history", MODE_PRIVATE)
-        val historyJson = prefs.getString("history_list", null)
-        val type = object : TypeToken<List<WorkoutHistory>>() {}.type
-        val historyList: List<WorkoutHistory> = if (historyJson != null) {
-            gson.fromJson(historyJson, type)
+        val user = auth.currentUser
+        if (user != null) {
+            db.collection("users").document(user.uid).collection("workouts")
+                .orderBy("date", Query.Direction.DESCENDING) // Sắp xếp theo ngày mới nhất
+                .limit(50) // Giới hạn 50 workout để tối ưu
+                .get()
+                .addOnSuccessListener { documents ->
+                    val historyList = documents.mapNotNull { it.toObject(WorkoutHistory::class.java) }
+                    val adapter = WorkoutHistoryAdapter(this, historyList)
+                    historyListView.adapter = adapter
+                }
+                .addOnFailureListener { e ->
+                    android.widget.Toast.makeText(this, "Lỗi tải lịch sử: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
+                    historyListView.adapter = WorkoutHistoryAdapter(this, emptyList())
+                }
         } else {
-            emptyList()
+            android.widget.Toast.makeText(this, "Vui lòng đăng nhập.", android.widget.Toast.LENGTH_SHORT).show()
+            historyListView.adapter = WorkoutHistoryAdapter(this, emptyList())
         }
-
-        val adapter = WorkoutHistoryAdapter(this, historyList)
-        historyListView.adapter = adapter
     }
 
     private fun setupCharts() {
@@ -152,125 +208,163 @@ class WorkoutHistoryActivity : AppCompatActivity() {
     }
 
     private fun setupWeeklyChart() {
-        val prefs = getSharedPreferences("workout_history", MODE_PRIVATE)
-        val historyJson = prefs.getString("history_list", null)
-        val type = object : TypeToken<List<WorkoutHistory>>() {}.type
-        val historyList: List<WorkoutHistory> = if (historyJson != null) {
-            gson.fromJson(historyJson, type)
-        } else {
-            emptyList()
+        val user = auth.currentUser
+        if (user == null) {
+            weeklyChart.data = null
+            weeklyChart.invalidate()
+            return
         }
 
-        // Group workouts by day of week for last 7 days
-        val calendar = Calendar.getInstance()
-        val weekData = mutableMapOf<String, Int>()
-        val dayLabels = mutableListOf<String>()
+        db.collection("users").document(user.uid).collection("workouts")
+            .get()
+            .addOnSuccessListener { documents ->
+                val historyList = documents.mapNotNull { it.toObject(WorkoutHistory::class.java) }
+                val calendar = Calendar.getInstance()
+                val weekData = mutableMapOf<String, Int>()
+                val dayLabels = mutableListOf<String>()
 
-        for (i in 6 downTo 0) {
-            calendar.add(Calendar.DAY_OF_YEAR, -i)
-            val dayFormat = SimpleDateFormat("EEE", Locale.getDefault())
-            val dayLabel = dayFormat.format(calendar.time)
-            dayLabels.add(dayLabel)
-            weekData[dayLabel] = 0
-            if (i > 0) calendar.add(Calendar.DAY_OF_YEAR, i)
-        }
+                for (i in 6 downTo 0) {
+                    calendar.add(Calendar.DAY_OF_YEAR, -i)
+                    val dayFormat = SimpleDateFormat("EEE", Locale.getDefault())
+                    val dayLabel = dayFormat.format(calendar.time)
+                    dayLabels.add(dayLabel)
+                    weekData[dayLabel] = 0
+                    if (i > 0) calendar.add(Calendar.DAY_OF_YEAR, i)
+                }
 
-        // Count workouts per day
-        historyList.forEach { workout ->
-            val workoutDate = Calendar.getInstance()
-            workoutDate.timeInMillis = workout.date
-            val dayFormat = SimpleDateFormat("EEE", Locale.getDefault())
-            val dayLabel = dayFormat.format(workoutDate.time)
-            weekData[dayLabel] = weekData[dayLabel]!! + 1
-        }
+                historyList.forEach { workout ->
+                    val workoutDate = Calendar.getInstance()
+                    workoutDate.timeInMillis = workout.date
+                    val dayFormat = SimpleDateFormat("EEE", Locale.getDefault())
+                    val dayLabel = dayFormat.format(workoutDate.time)
+                    weekData[dayLabel] = weekData[dayLabel]!! + 1
+                }
 
-        val entries = mutableListOf<BarEntry>()
-        dayLabels.forEachIndexed { index, day ->
-            entries.add(BarEntry(index.toFloat(), weekData[day]?.toFloat() ?: 0f))
-        }
+                val entries = mutableListOf<BarEntry>()
+                dayLabels.forEachIndexed { index, day ->
+                    entries.add(BarEntry(index.toFloat(), weekData[day]?.toFloat() ?: 0f))
+                }
 
-        val dataSet = BarDataSet(entries, "Workouts")
-        dataSet.colors = ColorTemplate.MATERIAL_COLORS.toList()
-
-        val barData = BarData(dataSet)
-        weeklyChart.data = barData
-        weeklyChart.xAxis.valueFormatter = IndexAxisValueFormatter(dayLabels)
-        weeklyChart.xAxis.position = XAxis.XAxisPosition.BOTTOM
-        weeklyChart.xAxis.granularity = 1f
-        weeklyChart.description.isEnabled = false
-        weeklyChart.legend.isEnabled = false
-        weeklyChart.invalidate()
+                val dataSet = BarDataSet(entries, "Workouts")
+                dataSet.colors = ColorTemplate.MATERIAL_COLORS.toList()
+                val barData = BarData(dataSet)
+                weeklyChart.data = barData
+                weeklyChart.xAxis.valueFormatter = IndexAxisValueFormatter(dayLabels)
+                weeklyChart.xAxis.position = XAxis.XAxisPosition.BOTTOM
+                weeklyChart.xAxis.granularity = 1f
+                weeklyChart.description.isEnabled = false
+                weeklyChart.legend.isEnabled = false
+                weeklyChart.invalidate()
+            }.addOnFailureListener { e ->
+                android.widget.Toast.makeText(this, "Lỗi tải dữ liệu biểu đồ: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
+                weeklyChart.data = null
+                weeklyChart.invalidate()
+            }
     }
 
     private fun setupPieChart() {
-        val prefs = getSharedPreferences("workout_history", MODE_PRIVATE)
-        val historyJson = prefs.getString("history_list", null)
-        val type = object : TypeToken<List<WorkoutHistory>>() {}.type
-        val historyList: List<WorkoutHistory> = if (historyJson != null) {
-            gson.fromJson(historyJson, type)
-        } else {
-            emptyList()
+        val user = auth.currentUser
+        if (user == null) {
+            pieChart.data = null
+            pieChart.invalidate()
+            return
         }
 
-        // Count exercises by type
-        val exerciseCount = mutableMapOf<String, Int>()
-        historyList.forEach { workout ->
-            exerciseCount[workout.exerciseName] = exerciseCount[workout.exerciseName]?.plus(1) ?: 1
-        }
+        db.collection("users").document(user.uid).collection("workouts")
+            .get()
+            .addOnSuccessListener { documents ->
+                val historyList = documents.mapNotNull { it.toObject(WorkoutHistory::class.java) }
+                val exerciseCount = mutableMapOf<String, Int>()
+                historyList.forEach { workout ->
+                    exerciseCount[workout.exerciseName] = exerciseCount[workout.exerciseName]?.plus(1) ?: 1
+                }
 
-        val entries = mutableListOf<PieEntry>()
-        exerciseCount.forEach { (exercise, count) ->
-            entries.add(PieEntry(count.toFloat(), exercise))
-        }
+                val entries = mutableListOf<PieEntry>()
+                exerciseCount.forEach { (exercise, count) ->
+                    entries.add(PieEntry(count.toFloat(), exercise))
+                }
 
-        val dataSet = PieDataSet(entries, "Exercise Distribution")
-        dataSet.colors = ColorTemplate.MATERIAL_COLORS.toList()
-
-        val pieData = PieData(dataSet)
-        pieChart.data = pieData
-        pieChart.description.isEnabled = false
-        pieChart.centerText = "Exercise\nDistribution"
-        pieChart.invalidate()
+                val dataSet = PieDataSet(entries, "Exercise Distribution")
+                dataSet.colors = ColorTemplate.MATERIAL_COLORS.toList()
+                val pieData = PieData(dataSet)
+                pieChart.data = pieData
+                pieChart.description.isEnabled = false
+                pieChart.centerText = "Exercise\nDistribution"
+                pieChart.invalidate()
+            }.addOnFailureListener { e ->
+                android.widget.Toast.makeText(this, "Lỗi tải dữ liệu biểu đồ: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
+                pieChart.data = null
+                pieChart.invalidate()
+            }
     }
 
     private fun loadPersonalRecords() {
+        val user = auth.currentUser
+        if (user != null) {
+            db.collection("users").document(user.uid).collection("personalRecords")
+                .get()
+                .addOnSuccessListener { documents ->
+                    val recordsList = documents.mapNotNull { it.toObject(PersonalRecord::class.java) }
+                    val adapter = PersonalRecordAdapter(this, recordsList)
+                    recordsListView.adapter = adapter
+                }
+                .addOnFailureListener { e ->
+                    android.widget.Toast.makeText(this, "Lỗi tải PR: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
+                    recordsListView.adapter = PersonalRecordAdapter(this, emptyList())
+                }
+        } else {
+            android.widget.Toast.makeText(this, "Vui lòng đăng nhập.", android.widget.Toast.LENGTH_SHORT).show()
+            recordsListView.adapter = PersonalRecordAdapter(this, emptyList())
+        }
+    }
+
+    private fun migrateLocalDataToFirestore() {
         val prefs = getSharedPreferences("workout_history", MODE_PRIVATE)
         val historyJson = prefs.getString("history_list", null)
-        val type = object : TypeToken<List<WorkoutHistory>>() {}.type
-        val historyList: List<WorkoutHistory> = if (historyJson != null) {
-            gson.fromJson(historyJson, type)
-        } else {
-            emptyList()
-        }
-
-        // Calculate personal records
-        val recordsMap = mutableMapOf<Int, PersonalRecord>()
-
-        historyList.groupBy { it.exerciseId }.forEach { (exerciseId, workouts) ->
-            val maxCount = workouts.maxByOrNull { it.count }
-            val totalWorkouts = workouts.size
-            val averageCount = workouts.map { it.count }.average()
-
-            if (maxCount != null) {
-                recordsMap[exerciseId] = PersonalRecord(
-                    exerciseId = exerciseId,
-                    exerciseName = maxCount.exerciseName,
-                    maxCount = maxCount.count,
-                    bestDate = maxCount.date,
-                    totalWorkouts = totalWorkouts,
-                    averageCount = averageCount
-                )
+        if (historyJson != null) {
+            val gson = Gson()
+            val type = object : TypeToken<List<WorkoutHistory>>() {}.type
+            val historyList: List<WorkoutHistory> = gson.fromJson(historyJson, type)
+            val user = auth.currentUser
+            if (user != null) {
+                val batch = db.batch()
+                historyList.forEach { workout ->
+                    batch.set(
+                        db.collection("users").document(user.uid).collection("workouts").document(workout.id),
+                        workout
+                    )
+                }
+                batch.commit().addOnSuccessListener {
+                    // Migrate personal records
+                    historyList.groupBy { it.exerciseId }.forEach { (exerciseId, workouts) ->
+                        val maxCount = workouts.maxByOrNull { it.count }
+                        if (maxCount != null) {
+                            val totalWorkouts = workouts.size
+                            val averageCount = workouts.map { it.count }.average()
+                            val newRecord = PersonalRecord(
+                                exerciseId = exerciseId,
+                                exerciseName = maxCount.exerciseName,
+                                maxCount = maxCount.count,
+                                bestDate = maxCount.date,
+                                totalWorkouts = totalWorkouts,
+                                averageCount = averageCount
+                            )
+                            db.collection("users").document(user.uid).collection("personalRecords")
+                                .document(exerciseId.toString())
+                                .set(newRecord)
+                        }
+                    }
+                    // Không xóa local data để đảm bảo tương thích
+                    // prefs.edit().remove("history_list").apply()
+                }.addOnFailureListener { e ->
+                    android.widget.Toast.makeText(this, "Lỗi migrate dữ liệu: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
+                }
             }
         }
-
-        val recordsList = recordsMap.values.toList()
-        val adapter = PersonalRecordAdapter(this, recordsList)
-        recordsListView.adapter = adapter
     }
 
     // Adapter for workout history
     class WorkoutHistoryAdapter(private val context: Context, private val historyList: List<WorkoutHistory>) : BaseAdapter() {
-
         override fun getCount(): Int = historyList.size
         override fun getItem(position: Int): Any = historyList[position]
         override fun getItemId(position: Int): Long = position.toLong()
@@ -292,18 +386,14 @@ class WorkoutHistoryActivity : AppCompatActivity() {
             val dateFormat = SimpleDateFormat("MMM dd, HH:mm", Locale.getDefault())
             workoutDate.text = dateFormat.format(Date(workout.date))
 
-            // Thay đoạn cũ bằng đoạn này trong WorkoutHistoryAdapter.getView(...)
             val completionPercentageDouble = if (workout.targetCount > 0) {
-                // Tính với double, giới hạn tối đa 100 và tối thiểu 0
                 val p = (workout.count.toDouble() / workout.targetCount.toDouble()) * 100.0
                 p.coerceIn(0.0, 100.0)
             } else {
                 0.0
             }
-// Hiển thị không có số thập phân (hoặc dùng "%.1f%%" nếu muốn 1 chữ số thập phân)
             completionStatus.text = String.format(Locale.getDefault(), "%.0f%%", completionPercentageDouble)
 
-// Dùng toInt() cho so sánh màu
             val completionPercentageInt = completionPercentageDouble.toInt()
             when {
                 completionPercentageInt >= 100 -> completionStatus.setTextColor(Color.parseColor("#4CAF50"))
@@ -311,10 +401,8 @@ class WorkoutHistoryActivity : AppCompatActivity() {
                 else -> completionStatus.setTextColor(Color.parseColor("#F44336"))
             }
 
-
             caloriesBurned.text = "${workout.caloriesBurned.toInt()} cal"
 
-            // Set exercise icon based on type
             when (workout.exerciseId) {
                 1 -> exerciseIcon.setImageResource(R.drawable.pushup)
                 2 -> exerciseIcon.setImageResource(R.drawable.squat)
@@ -329,7 +417,6 @@ class WorkoutHistoryActivity : AppCompatActivity() {
 
     // Adapter for personal records
     class PersonalRecordAdapter(private val context: Context, private val recordsList: List<PersonalRecord>) : BaseAdapter() {
-
         override fun getCount(): Int = recordsList.size
         override fun getItem(position: Int): Any = recordsList[position]
         override fun getItemId(position: Int): Long = position.toLong()
@@ -354,7 +441,6 @@ class WorkoutHistoryActivity : AppCompatActivity() {
 
             recordBadge.text = record.maxCount.toString()
 
-            // Set medal icon based on exercise type
             when (record.exerciseId) {
                 1 -> medalIcon.setImageResource(R.drawable.pushup)
                 2 -> medalIcon.setImageResource(R.drawable.squat)
