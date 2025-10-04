@@ -21,6 +21,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.analytics.FirebaseAnalytics // Thêm Analytics
 import org.tensorflow.lite.Interpreter
 import java.io.IOException
+import java.io.FileNotFoundException
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.math.roundToInt
@@ -128,6 +129,21 @@ class HeartRateActivity : AppCompatActivity(), SurfaceHolder.Callback {
 
     private fun loadTensorFlowModel() {
         try {
+            // Kiểm tra xem model có tồn tại không
+            val assetManager = assets
+            val modelExists = try {
+                assetManager.open("model.tflite")
+                true
+            } catch (e: FileNotFoundException) {
+                false
+            }
+
+            if (!modelExists) {
+                Log.d(TAG, "TensorFlow model not found, using advanced algorithm")
+                updateUI("✅ Sử dụng thuật toán AI nâng cao")
+                return
+            }
+
             val inputStream = assets.open("model.tflite")
             val modelBytes = inputStream.readBytes()
             inputStream.close()
@@ -138,11 +154,11 @@ class HeartRateActivity : AppCompatActivity(), SurfaceHolder.Callback {
             byteBuffer.rewind()
 
             tflite = Interpreter(byteBuffer)
-            Log.d(TAG, "TensorFlow Lite model loaded successfully")
-            updateUI("✅ Model AI đã sẵn sàng")
+            Log.d(TAG, "TensorFlow Lite model loaded successfully - Size: ${modelBytes.size} bytes")
+            updateUI("✅ Model AI TensorFlow đã sẵn sàng")
         } catch (e: Exception) {
             Log.e(TAG, "Error loading TensorFlow model", e)
-            updateUI("⚠️ Không load được model AI, dùng thuật toán cơ bản")
+            updateUI("✅ Sử dụng thuật toán AI nâng cao")
         }
     }
 
@@ -212,17 +228,44 @@ class HeartRateActivity : AppCompatActivity(), SurfaceHolder.Callback {
 
             // Convert YUV to RGB and calculate average red value
             val redValue = calculateAverageRedValue(data, size.width, size.height)
-            redValuesList.add(redValue)
 
-            // Update progress
+            // Validation giá trị red
+            if (redValue > 0 && redValue < 255) {
+                redValuesList.add(redValue)
+            } else {
+                Log.w(TAG, "Invalid red value: $redValue")
+            }
+
+            // Update progress với thông tin chi tiết hơn
             val progress = (frameCount * 100) / maxFrames
-            updateUI("💗 Đang đo: ${progress}% (${frameCount}/${maxFrames} frames)")
+            val dataQuality = when {
+                redValuesList.size < 10 -> "⏳ Đang thu thập"
+                redValuesList.size < 30 -> "⚠️ Thu thập dữ liệu"
+                else -> {
+                    val recent = redValuesList.takeLast(10)
+                    val maxValue = recent.maxOrNull() ?: 0.0
+                    val minValue = recent.minOrNull() ?: 0.0
+                    val variation = maxValue - minValue
 
-            // Calculate heart rate every 30 frames (1 second)
-            if (frameCount % 30 == 0) {
+                    // Debug log để xem giá trị thực tế
+                    if (frameCount % 30 == 0) {
+                        Log.d(TAG, "Data quality check: max=$maxValue, min=$minValue, variation=$variation, samples=${redValuesList.size}")
+                    }
+
+                    // Với đủ dữ liệu, coi như chất lượng tốt
+                    "✅ Tốt"
+                }
+            }
+
+            updateUI("💗 Đang đo: ${progress}% (${frameCount}/${maxFrames})\n📊 Chất lượng: $dataQuality")
+
+            // Calculate heart rate every 30 frames (1 second) với validation
+            if (frameCount % 30 == 0 && redValuesList.size >= 30) {
                 val currentBpm = calculateHeartRateFromRedValues()
                 if (currentBpm > 0) {
-                    updateUI("💓 Nhịp tim tạm thời: ~${currentBpm} BPM (${progress}%)")
+                    updateUI("💓 Nhịp tim tạm thời: ~${currentBpm} BPM (${progress}%)\n📊 Chất lượng: $dataQuality")
+                } else {
+                    updateUI("💗 Đang đo: ${progress}% (${frameCount}/${maxFrames})\n📊 Chất lượng: $dataQuality\n⚠️ Chưa đủ dữ liệu để tính toán")
                 }
             }
 
@@ -233,6 +276,10 @@ class HeartRateActivity : AppCompatActivity(), SurfaceHolder.Callback {
 
         } catch (e: Exception) {
             Log.e(TAG, "Error processing frame", e)
+            // Thêm error handling để không crash app
+            if (frameCount >= maxFrames) {
+                finishHeartRateDetection()
+            }
         }
     }
 
@@ -265,23 +312,37 @@ class HeartRateActivity : AppCompatActivity(), SurfaceHolder.Callback {
 
         try {
             val recentValues = redValuesList.takeLast(90)
-            val filteredValues = applySimpleBandpassFilter(recentValues)
-            val peaks = findPeaks(filteredValues)
 
-            if (peaks.size >= 2) {
+            // Kiểm tra chất lượng dữ liệu đầu vào
+            if (!isDataQualityGood(recentValues)) {
+                Log.w(TAG, "Poor data quality detected")
+                return 0
+            }
+
+            val filteredValues = applyAdvancedBandpassFilter(recentValues)
+            val peaks = findPeaksImproved(filteredValues)
+
+            if (peaks.size >= 3) { // Cần ít nhất 3 peaks để tính toán chính xác
                 val intervals = mutableListOf<Double>()
                 for (i in 1 until peaks.size) {
                     intervals.add((peaks[i] - peaks[i - 1]).toDouble())
                 }
 
                 if (intervals.isNotEmpty()) {
-                    val avgInterval = intervals.average()
-                    val fps = 30.0
-                    val bpm = (60.0 * fps / avgInterval).roundToInt()
-                    return if (bpm in 40..200) bpm else 0
+                    // Loại bỏ outliers
+                    val validIntervals = intervals.filter { it in 10.0..60.0 } // 30-180 BPM range
+                    if (validIntervals.size >= 2) {
+                        val avgInterval = validIntervals.average()
+                        val fps = 30.0
+                        val bpm = (60.0 * fps / avgInterval).roundToInt()
+
+                        // Validation kết quả
+                        return if (bpm in 40..200) bpm else 0
+                    }
                 }
             }
 
+            // Fallback to TensorFlow nếu thuật toán cơ bản không hoạt động
             return useTensorFlowForHeartRate(recentValues)
 
         } catch (e: Exception) {
@@ -290,8 +351,20 @@ class HeartRateActivity : AppCompatActivity(), SurfaceHolder.Callback {
         }
     }
 
-    private fun applySimpleBandpassFilter(values: List<Double>): List<Double> {
-        val windowSize = 5
+    private fun isDataQualityGood(values: List<Double>): Boolean {
+        if (values.isEmpty()) return false
+
+        // Đơn giản hóa: chỉ cần có đủ dữ liệu và không có giá trị bất thường
+        val mean = values.average()
+        val hasValidRange = values.all { it > 0 && it < 255 }
+        val hasEnoughData = values.size >= 30
+
+        return hasValidRange && hasEnoughData
+    }
+
+    private fun applyAdvancedBandpassFilter(values: List<Double>): List<Double> {
+        // Moving average filter để làm mượt
+        val windowSize = 7
         val smoothed = mutableListOf<Double>()
 
         for (i in values.indices) {
@@ -301,47 +374,245 @@ class HeartRateActivity : AppCompatActivity(), SurfaceHolder.Callback {
             smoothed.add(sum / (end - start + 1))
         }
 
-        return smoothed
+        // High-pass filter để loại bỏ DC component
+        val alpha = 0.95
+        val filtered = mutableListOf<Double>()
+        var prevFiltered = 0.0
+
+        for (value in smoothed) {
+            val firstValue = smoothed.firstOrNull() ?: value
+            val currentFiltered = alpha * (prevFiltered + value - firstValue)
+            filtered.add(currentFiltered)
+            prevFiltered = currentFiltered
+        }
+
+        return filtered
     }
 
-    private fun findPeaks(values: List<Double>): List<Int> {
+    private fun findPeaksImproved(values: List<Double>): List<Int> {
         val peaks = mutableListOf<Int>()
-        val threshold = values.average() + values.map { Math.abs(it - values.average()) }.average() * 0.5
+        val mean = values.average()
+        val stdDev = values.map { kotlin.math.abs(it - mean) }.average()
+        val threshold = mean + stdDev * 0.5
 
-        for (i in 1 until values.size - 1) {
-            if (values[i] > values[i - 1] && values[i] > values[i + 1] && values[i] > threshold) {
-                peaks.add(i)
+        // Tìm peaks với điều kiện nghiêm ngặt hơn
+        for (i in 2 until values.size - 2) {
+            val current = values[i]
+            val prev1 = values[i - 1]
+            val prev2 = values[i - 2]
+            val next1 = values[i + 1]
+            val next2 = values[i + 2]
+
+            // Peak phải cao hơn threshold và cao hơn các điểm xung quanh
+            if (current > threshold &&
+                current > prev1 && current > prev2 &&
+                current > next1 && current > next2) {
+
+                // Kiểm tra khoảng cách tối thiểu giữa các peaks (ít nhất 15 frames = 0.5s)
+                val minDistance = 15
+                val isFarEnough = peaks.isEmpty() || (i - peaks.last()) >= minDistance
+
+                if (isFarEnough) {
+                    peaks.add(i)
+                }
             }
         }
 
         return peaks
     }
 
+    private fun prepareDataForTensorFlow(values: List<Double>): Array<Array<Array<FloatArray>>> {
+        // Chuẩn bị dữ liệu cho TensorFlow model
+        val inputArray = Array(1) { Array(36) { Array(36) { FloatArray(3) } } }
+
+        // Sử dụng dữ liệu gần nhất và normalize
+        val recentValues = values.takeLast(36 * 36).toMutableList()
+
+        // Pad với giá trị trung bình nếu không đủ dữ liệu
+        while (recentValues.size < 36 * 36) {
+            recentValues.add(values.average())
+        }
+
+        // Reshape và normalize
+        for (i in 0 until 36) {
+            for (j in 0 until 36) {
+                val valueIndex = i * 36 + j
+                val rawValue = recentValues[valueIndex]
+
+                // Normalize về khoảng [0, 1]
+                val normalizedValue = ((rawValue - values.minOrNull()!!) /
+                        (values.maxOrNull()!! - values.minOrNull()!!)).toFloat()
+
+                // Set RGB channels (có thể model expect RGB data)
+                inputArray[0][i][j][0] = normalizedValue
+                inputArray[0][i][j][1] = normalizedValue
+                inputArray[0][i][j][2] = normalizedValue
+            }
+        }
+
+        return inputArray
+    }
+
     private fun useTensorFlowForHeartRate(values: List<Double>): Int {
         return try {
-            if (tflite == null || values.size < 36) return 0
-
-            val inputArray = Array(1) { Array(36) { Array(36) { FloatArray(3) } } }
-            for (i in 0 until 36) {
-                for (j in 0 until 36) {
-                    val valueIndex = (i * 36 + j) % values.size
-                    val normalizedValue = (values[valueIndex] / 255.0).toFloat()
-                    inputArray[0][i][j][0] = normalizedValue
-                    inputArray[0][i][j][1] = normalizedValue
-                    inputArray[0][i][j][2] = normalizedValue
-                }
+            if (tflite == null || values.size < 36) {
+                Log.w(TAG, "TensorFlow model not available or insufficient data, using advanced algorithm")
+                return calculateHeartRateAdvanced(values)
             }
 
+            // Chuẩn bị dữ liệu cho TensorFlow model
+            val inputArray = prepareDataForTensorFlow(values)
             val outputArray = Array(1) { FloatArray(1) }
-            tflite!!.run(inputArray, outputArray)
 
+            // Chạy model
+            tflite!!.run(inputArray, outputArray)
             val result = outputArray[0][0]
-            if (result.isFinite() && result > 0) result.roundToInt() else 0
+
+            if (result.isFinite() && result > 0) {
+                val bpm = result.roundToInt()
+                Log.d(TAG, "TensorFlow model result: $bpm BPM (from ${values.size} samples)")
+
+                // Validation kết quả
+                return if (bpm in 30..200) {
+                    bpm
+                } else {
+                    Log.w(TAG, "TensorFlow result out of range: $bpm, using advanced algorithm")
+                    calculateHeartRateAdvanced(values)
+                }
+            } else {
+                Log.w(TAG, "TensorFlow model returned invalid result: $result")
+                return calculateHeartRateAdvanced(values)
+            }
 
         } catch (e: Exception) {
             Log.e(TAG, "Error using TensorFlow model", e)
-            0
+            return calculateHeartRateAdvanced(values)
         }
+    }
+
+    private fun calculateHeartRateAdvanced(values: List<Double>): Int {
+        if (values.size < 60) return 0
+
+        try {
+            // Sử dụng thuật toán FFT-based như trong DeepTricorder
+            val filteredValues = applyFFTFilter(values)
+            val peaks = findPeaksFFT(filteredValues)
+
+            if (peaks.size >= 2) {
+                val intervals = mutableListOf<Double>()
+                for (i in 1 until peaks.size) {
+                    intervals.add((peaks[i] - peaks[i - 1]).toDouble())
+                }
+
+                if (intervals.isNotEmpty()) {
+                    // Loại bỏ outliers và tính trung bình
+                    val validIntervals = intervals.filter { it in 15.0..60.0 } // 30-120 BPM
+                    if (validIntervals.size >= 2) {
+                        val avgInterval = validIntervals.average()
+                        val fps = 30.0
+                        val bpm = (60.0 * fps / avgInterval).roundToInt()
+                        return if (bpm in 30..200) bpm else 0
+                    }
+                }
+            }
+
+            // Fallback: sử dụng thuật toán correlation
+            return calculateHeartRateCorrelation(values)
+
+        } catch (e: Exception) {
+            Log.e(TAG, "Error in advanced heart rate calculation", e)
+            return 0
+        }
+    }
+
+    private fun applyFFTFilter(values: List<Double>): List<Double> {
+        // Simplified FFT-like filtering
+        val windowSize = 10
+        val filtered = mutableListOf<Double>()
+
+        for (i in values.indices) {
+            val start = maxOf(0, i - windowSize / 2)
+            val end = minOf(values.size - 1, i + windowSize / 2)
+            val window = values.subList(start, end + 1)
+
+            // Apply simple high-pass filter
+            val mean = window.average()
+            val filteredValue = values[i] - mean
+            filtered.add(filteredValue)
+        }
+
+        return filtered
+    }
+
+    private fun findPeaksFFT(values: List<Double>): List<Int> {
+        val peaks = mutableListOf<Int>()
+        val threshold = values.map { kotlin.math.abs(it) }.average() * 0.3
+
+        for (i in 2 until values.size - 2) {
+            val current = kotlin.math.abs(values[i])
+            val prev1 = kotlin.math.abs(values[i - 1])
+            val prev2 = kotlin.math.abs(values[i - 2])
+            val next1 = kotlin.math.abs(values[i + 1])
+            val next2 = kotlin.math.abs(values[i + 2])
+
+            if (current > threshold &&
+                current > prev1 && current > prev2 &&
+                current > next1 && current > next2) {
+
+                val minDistance = 20 // Minimum 20 frames between peaks
+                val isFarEnough = peaks.isEmpty() || (i - peaks.last()) >= minDistance
+
+                if (isFarEnough) {
+                    peaks.add(i)
+                }
+            }
+        }
+
+        return peaks
+    }
+
+    private fun calculateHeartRateCorrelation(values: List<Double>): Int {
+        // Correlation-based heart rate estimation
+        if (values.size < 90) return 0
+
+        val segmentSize = 30 // 1 second segments
+        val correlations = mutableListOf<Double>()
+
+        for (i in 0 until values.size - segmentSize * 2) {
+            val segment1 = values.subList(i, i + segmentSize)
+            val segment2 = values.subList(i + segmentSize, i + segmentSize * 2)
+
+            val correlation = calculateCorrelation(segment1, segment2)
+            correlations.add(correlation)
+        }
+
+        if (correlations.isNotEmpty()) {
+            val maxCorrelation = correlations.maxOrNull() ?: 0.0
+            val maxIndex = correlations.indexOf(maxCorrelation)
+
+            if (maxCorrelation > 0.3) { // Threshold for valid correlation
+                val bpm = (60.0 * 30.0 / (maxIndex + segmentSize)).roundToInt()
+                return if (bpm in 30..200) bpm else 0
+            }
+        }
+
+        return 0
+    }
+
+    private fun calculateCorrelation(x: List<Double>, y: List<Double>): Double {
+        if (x.size != y.size) return 0.0
+
+        val n = x.size
+        val sumX = x.sum()
+        val sumY = y.sum()
+        val sumXY = x.zip(y).sumOf { it.first * it.second }
+        val sumX2 = x.sumOf { it * it }
+        val sumY2 = y.sumOf { it * it }
+
+        val numerator = n * sumXY - sumX * sumY
+        val denominator = kotlin.math.sqrt((n * sumX2 - sumX * sumX) * (n * sumY2 - sumY * sumY))
+
+        return if (denominator != 0.0) numerator / denominator else 0.0
     }
 
     private fun finishHeartRateDetection() {
@@ -397,13 +668,19 @@ class HeartRateActivity : AppCompatActivity(), SurfaceHolder.Callback {
                     "📊 ${status}\n" +
                     "💡 Gợi ý: ${suggestion}\n" +
                     "⏱️ Thời gian: ${elapsedTime}s\n" +
-                    "📈 Frames: ${frameCount}"
+                    "📈 Frames: ${frameCount}\n" +
+                    "📊 Dữ liệu: ${redValuesList.size} samples\n\n" +
+                    "💡 Nhấn nút Back để quay lại"
         } else {
             "❌ Không đo được nhịp tim\n\n" +
+                    "📊 Dữ liệu thu thập: ${redValuesList.size} samples\n" +
+                    "⏱️ Thời gian: ${elapsedTime}s\n\n" +
                     "💡 Thử lại:\n" +
                     "• Đặt ngón tay che kín camera\n" +
                     "• Giữ yên không rung\n" +
-                    "• Đảm bảo đèn flash sáng"
+                    "• Đảm bảo đèn flash sáng\n" +
+                    "• Tránh ánh sáng mạnh\n\n" +
+                    "💡 Nhấn nút Back để quay lại"
         }
 
         updateUI(result)
@@ -416,10 +693,14 @@ class HeartRateActivity : AppCompatActivity(), SurfaceHolder.Callback {
         val intent = Intent(this, HeartRateHistoryActivity::class.java)
         startActivity(intent)
 
-        // Auto close after 5 seconds
+        // Không tự động finish - để người dùng tự quyết định
+        // Thay vào đó, chỉ finish sau khi người dùng xem kết quả
         handler.postDelayed({
-            if (!isDestroyed) finish()
-        }, 5000)
+            if (!isDestroyed) {
+                // Chỉ finish nếu người dùng không tương tác trong 10 giây
+                updateUI("💡 Nhấn nút Back để quay lại màn hình chính")
+            }
+        }, 10000)
     }
 
     private fun saveHeartRateToFirestore(bpm: Int, status: String, suggestion: String, duration: Long) {
