@@ -27,6 +27,7 @@ class HomeScreen : AppCompatActivity() {
     private val LOCATION_PERMISSION_REQUEST = 2001
     private lateinit var auth: FirebaseAuth
     private lateinit var db: FirebaseFirestore
+    private lateinit var weatherHelper: WeatherHelper
 
     // ActivityResultLauncher để làm mới nhịp tim
     private val refreshHeartRateLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -43,6 +44,15 @@ class HomeScreen : AppCompatActivity() {
         // Khởi tạo Firebase
         auth = FirebaseAuth.getInstance()
         db = FirebaseFirestore.getInstance()
+
+
+        weatherHelper = WeatherHelper(this)
+
+//        // Nút quét calo
+//        val btnScanCalo = findViewById<LinearLayout>(R.id.btnScanCalo)
+//        btnScanCalo.setOnClickListener {
+//            startActivity(Intent(this, FruitCaloActivity::class.java))
+//        }
 
         // Nút đo nhịp tim
         val btnHeartRate = findViewById<LinearLayout>(R.id.btnHeartRate)
@@ -110,6 +120,9 @@ class HomeScreen : AppCompatActivity() {
             if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 showWeatherSuggestion()
             } else {
+                val tvSuggestion = findViewById<TextView>(R.id.tvWeatherSuggestion)
+                tvSuggestion.text = "❌ Cần quyền vị trí để lấy gợi ý thời tiết"
+
                 AlertDialog.Builder(this)
                     .setTitle("Quyền vị trí bị từ chối")
                     .setMessage("Không thể lấy gợi ý tập luyện theo thời tiết nếu không cấp quyền vị trí.")
@@ -122,16 +135,19 @@ class HomeScreen : AppCompatActivity() {
 
     private fun showWeatherSuggestion() {
         val tvSuggestion = findViewById<TextView>(R.id.tvWeatherSuggestion)
-        tvSuggestion.text = "⏳ Đang lấy gợi ý thời tiết..."
+        tvSuggestion.text = "⏳ Đang lấy vị trí và thời tiết...\n(Có thể mất 10-20 giây)"
 
         try {
-            val weatherHelper = WeatherHelper(this, "73371ff12e460447cff4621d4a956c22")
             weatherHelper.getWeatherSuggestion { suggestion ->
-                runOnUiThread { tvSuggestion.text = suggestion }
+                runOnUiThread {
+                    tvSuggestion.text = suggestion
+                }
             }
         } catch (e: Exception) {
             e.printStackTrace()
-            runOnUiThread { tvSuggestion.text = "❌ Không thể lấy gợi ý thời tiết" }
+            runOnUiThread {
+                tvSuggestion.text = "❌ Lỗi: ${e.message}\n\nVui lòng thử lại sau."
+            }
         }
     }
 
@@ -197,5 +213,11 @@ class HomeScreen : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         loadHeartRateSuggestion()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        // Cleanup WeatherHelper
+        weatherHelper.cleanup()
     }
 }
