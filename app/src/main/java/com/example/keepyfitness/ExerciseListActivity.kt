@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -19,6 +20,8 @@ import androidx.core.view.WindowInsetsCompat
 import com.bumptech.glide.Glide
 import com.example.keepyfitness.Model.ExerciseDataModel
 import com.example.keepyfitness.Model.Schedule
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import java.text.SimpleDateFormat
@@ -53,6 +56,9 @@ class ExerciseListActivity : AppCompatActivity() {
     }
 
     class ExerciseAdapter(val context: Context, val exerciseList: List<ExerciseDataModel>) : BaseAdapter() {
+        private val auth = FirebaseAuth.getInstance()
+        private val db = FirebaseFirestore.getInstance()
+
         override fun getCount(): Int {
             return exerciseList.size
         }
@@ -72,13 +78,13 @@ class ExerciseListActivity : AppCompatActivity() {
             val card = view.findViewById<CardView>(R.id.cardView)
 
             card.setOnClickListener {
-                // Lấy target từ schedule của ngày hôm nay
-                val targetReps = getTodayTargetForExercise(exerciseList[position].title)
-
-                val intent = Intent(context, MainActivity::class.java)
-                intent.putExtra("data", exerciseList[position])
-                intent.putExtra("target_count", targetReps)
-                context.startActivity(intent)
+                // Lấy target từ schedule của ngày hôm nay từ Firestore
+                getTodayTargetForExercise(exerciseList[position].title) { targetReps ->
+                    val intent = Intent(context, MainActivity::class.java)
+                    intent.putExtra("data", exerciseList[position])
+                    intent.putExtra("target_count", targetReps)
+                    context.startActivity(intent)
+                }
             }
 
             card.setCardBackgroundColor(exerciseList[position].color)
@@ -87,7 +93,57 @@ class ExerciseListActivity : AppCompatActivity() {
             return view
         }
 
-        private fun getTodayTargetForExercise(exerciseName: String): Int {
+        private fun getTodayTargetForExercise(exerciseName: String, callback: (Int) -> Unit) {
+            val user = auth.currentUser
+            if (user == null) {
+                // Nếu không đăng nhập, thử đọc từ SharedPreferences (fallback)
+                val target = getTodayTargetFromSharedPrefs(exerciseName)
+                callback(target)
+                return
+            }
+
+            // Lấy tên ngày hôm nay theo tiếng Việt
+            val calendar = Calendar.getInstance()
+            val today = when (calendar.get(Calendar.DAY_OF_WEEK)) {
+                Calendar.MONDAY -> "Thứ Hai"
+                Calendar.TUESDAY -> "Thứ Ba"
+                Calendar.WEDNESDAY -> "Thứ Tư"
+                Calendar.THURSDAY -> "Thứ Năm"
+                Calendar.FRIDAY -> "Thứ Sáu"
+                Calendar.SATURDAY -> "Thứ Bảy"
+                Calendar.SUNDAY -> "Chủ Nhật"
+                else -> ""
+            }
+
+            // Đọc từ Firestore
+            db.collection("users").document(user.uid).collection("schedules")
+                .get()
+                .addOnSuccessListener { documents ->
+                    var targetReps = 0
+                    for (document in documents) {
+                        val schedule = document.toObject(Schedule::class.java)
+                        if (schedule.exercise == exerciseName && schedule.days.contains(today)) {
+                            targetReps = schedule.quantity
+                            break
+                        }
+                    }
+
+                    // Nếu không tìm thấy target từ Firestore, thử SharedPreferences
+                    if (targetReps == 0) {
+                        targetReps = getTodayTargetFromSharedPrefs(exerciseName)
+                    }
+
+                    callback(targetReps)
+                }
+                .addOnFailureListener { e ->
+                    Log.e("ExerciseListActivity", "Error loading schedules: ${e.message}")
+                    // Fallback to SharedPreferences
+                    val target = getTodayTargetFromSharedPrefs(exerciseName)
+                    callback(target)
+                }
+        }
+
+        private fun getTodayTargetFromSharedPrefs(exerciseName: String): Int {
             val prefs = context.getSharedPreferences("schedules", Context.MODE_PRIVATE)
             val gson = Gson()
             val type = object : TypeToken<List<Schedule>>() {}.type
@@ -98,17 +154,25 @@ class ExerciseListActivity : AppCompatActivity() {
                 emptyList()
             }
 
-            // Lấy tên ngày hôm nay
+            // Lấy tên ngày hôm nay theo tiếng Việt
             val calendar = Calendar.getInstance()
-            val dayFormat = SimpleDateFormat("EEEE", Locale.ENGLISH) // Monday, Tuesday, etc.
-            val today = dayFormat.format(calendar.time)
+            val today = when (calendar.get(Calendar.DAY_OF_WEEK)) {
+                Calendar.MONDAY -> "Thứ Hai"
+                Calendar.TUESDAY -> "Thứ Ba"
+                Calendar.WEDNESDAY -> "Thứ Tư"
+                Calendar.THURSDAY -> "Thứ Năm"
+                Calendar.FRIDAY -> "Thứ Sáu"
+                Calendar.SATURDAY -> "Thứ Bảy"
+                Calendar.SUNDAY -> "Chủ Nhật"
+                else -> ""
+            }
 
             // Tìm schedule cho bài tập này trong ngày hôm nay
             val todaySchedule = scheduleList.find { schedule ->
                 schedule.exercise == exerciseName && schedule.days.contains(today)
             }
 
-            return todaySchedule?.quantity ?: 0 // Trả về 0 nếu không có target
+            return todaySchedule?.quantity ?: 50 // Trả về 50 mặc định nếu không có target
         }
     }
 }

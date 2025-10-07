@@ -60,6 +60,7 @@
         <activity android:name=".ScheduleListActivity" android:exported="true" />
         <activity android:name=".AddScheduleActivity" android:exported="true" />
         <activity android:name=".WorkoutHistoryActivity" android:exported="true" />
+
         <activity
             android:name=".WorkoutResultsActivity"
             android:exported="false"
@@ -73,6 +74,11 @@
             android:theme="@style/Theme.KeepYFitness" />
         <receiver android:name=".WorkoutNotificationReceiver" android:exported="false" />
         <activity android:name=".HeartRateHistoryActivity" android:exported="true"/>
+        <activity
+            android:name=".FruitCalo"
+            android:exported="false"
+            android:label="Quét Calo"
+            android:theme="@style/Theme.KeepYFitness" />
 
         <provider
             android:name="androidx.core.content.FileProvider"

@@ -132,7 +132,7 @@
                 <!-- Calories burned -->
                 <androidx.cardview.widget.CardView
                     android:layout_width="match_parent"
-                    android:layout_height="100dp"
+                    android:layout_height="110dp"
                     app:cardCornerRadius="20dp"
                     app:cardElevation="6dp"
                     app:cardBackgroundColor="@android:color/white">
@@ -142,34 +142,27 @@
                         android:layout_height="match_parent"
                         android:orientation="vertical"
                         android:gravity="center"
-                        android:padding="16dp">
-
-                        <androidx.cardview.widget.CardView
-                            android:layout_width="40dp"
-                            android:layout_height="40dp"
-                            app:cardCornerRadius="20dp"
-                            app:cardElevation="0dp"
-                            app:cardBackgroundColor="#FFF3E0"
-                            android:layout_marginBottom="8dp">
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_gravity="center"
-                                android:text="1.2K"
-                                android:textSize="16sp"
-                                android:textStyle="bold"
-                                android:textColor="#F57C00" />
-
-                        </androidx.cardview.widget.CardView>
+                        android:padding="12dp"
+                        android:paddingBottom="36dp">
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Calo hôm nay"
-                            android:textSize="13sp"
+                            android:text="Bạn cần đốt cháy"
+                            android:textSize="12sp"
                             android:textColor="#666666"
-                            android:fontFamily="sans-serif-medium" />
+                            android:fontFamily="sans-serif-medium"
+                            android:layout_marginBottom="4dp" />
+
+                        <TextView
+                            android:id="@+id/tvTotalCalories"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="0 calo"
+                            android:textSize="24sp"
+                            android:textStyle="bold"
+                            android:textColor="#F57C00"
+                            android:gravity="center" />
 
                     </LinearLayout>
 
@@ -325,6 +318,84 @@
                 android:layout_marginTop="24dp"
                 android:layout_marginEnd="20dp"
                 android:orientation="vertical">
+                <!-- Schedule Workout Button -->
+                <androidx.cardview.widget.CardView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="16dp"
+                    app:cardCornerRadius="16dp"
+                    app:cardElevation="4dp"
+                    app:cardBackgroundColor="@android:color/white">
+
+                    <LinearLayout
+                        android:id="@+id/btnScheduleWorkout"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:padding="18dp"
+                        android:background="?attr/selectableItemBackground">
+
+                        <androidx.cardview.widget.CardView
+                            android:layout_width="40dp"
+                            android:layout_height="40dp"
+                            app:cardCornerRadius="20dp"
+                            app:cardElevation="0dp">
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="match_parent"
+                                android:background="@drawable/schedule_gradient"
+                                android:gravity="center">
+
+                                <ImageView
+                                    android:layout_width="22dp"
+                                    android:layout_height="22dp"
+                                    android:src="@android:drawable/ic_menu_my_calendar"
+                                    app:tint="@android:color/white"
+                                    android:contentDescription="Calendar icon" />
+
+                            </LinearLayout>
+
+                        </androidx.cardview.widget.CardView>
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="16dp"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:fontFamily="sans-serif-medium"
+                                android:text="Lịch trình tập luyện"
+                                android:textColor="#1B5E20"
+                                android:textSize="16sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="2dp"
+                                android:fontFamily="sans-serif-medium"
+                                android:text="Lên chu trình luyện tập"
+                                android:textColor="#666666"
+                                android:textSize="13sp" />
+
+                        </LinearLayout>
+
+                        <ImageView
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:src="@android:drawable/ic_menu_send"
+                            app:tint="#FF9800"
+                            android:contentDescription="Arrow icon" />
+
+                    </LinearLayout>
+
+                </androidx.cardview.widget.CardView>
 
                 <!-- Start Workout Button -->
                 <androidx.cardview.widget.CardView
@@ -405,84 +476,6 @@
 
                 </androidx.cardview.widget.CardView>
 
-                <!-- Schedule Workout Button -->
-                <androidx.cardview.widget.CardView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="16dp"
-                    app:cardCornerRadius="16dp"
-                    app:cardElevation="4dp"
-                    app:cardBackgroundColor="@android:color/white">
-
-                    <LinearLayout
-                        android:id="@+id/btnScheduleWorkout"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:gravity="center_vertical"
-                        android:padding="18dp"
-                        android:background="?attr/selectableItemBackground">
-
-                        <androidx.cardview.widget.CardView
-                            android:layout_width="40dp"
-                            android:layout_height="40dp"
-                            app:cardCornerRadius="20dp"
-                            app:cardElevation="0dp">
-
-                            <LinearLayout
-                                android:layout_width="match_parent"
-                                android:layout_height="match_parent"
-                                android:background="@drawable/schedule_gradient"
-                                android:gravity="center">
-
-                                <ImageView
-                                    android:layout_width="22dp"
-                                    android:layout_height="22dp"
-                                    android:src="@android:drawable/ic_menu_my_calendar"
-                                    app:tint="@android:color/white"
-                                    android:contentDescription="Calendar icon" />
-
-                            </LinearLayout>
-
-                        </androidx.cardview.widget.CardView>
-
-                        <LinearLayout
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:layout_marginStart="16dp"
-                            android:orientation="vertical">
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="Lịch trình tập luyện"
-                                android:textSize="16sp"
-                                android:textStyle="bold"
-                                android:textColor="#1B5E20"
-                                android:fontFamily="sans-serif-medium" />
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="Lên chu trình luyện tập"
-                                android:textSize="13sp"
-                                android:textColor="#666666"
-                                android:layout_marginTop="2dp"
-                                android:fontFamily="sans-serif-medium" />
-
-                        </LinearLayout>
-
-                        <ImageView
-                            android:layout_width="20dp"
-                            android:layout_height="20dp"
-                            android:src="@android:drawable/ic_menu_send"
-                            app:tint="#FF9800"
-                            android:contentDescription="Arrow icon" />
-
-                    </LinearLayout>
-
-                </androidx.cardview.widget.CardView>
 
                 <!-- View History Button -->
                 <androidx.cardview.widget.CardView

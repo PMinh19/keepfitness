@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -48,11 +49,14 @@ class HomeScreen : AppCompatActivity() {
 
         weatherHelper = WeatherHelper(this)
 
-//        // Nút quét calo
-//        val btnScanCalo = findViewById<LinearLayout>(R.id.btnScanCalo)
-//        btnScanCalo.setOnClickListener {
-//            startActivity(Intent(this, FruitCaloActivity::class.java))
-//        }
+        // Hiển thị tổng calo
+        loadTotalCalories()
+
+        // Nút quét calo
+        val btnScanCalo = findViewById<LinearLayout>(R.id.btnScanCalo)
+        btnScanCalo.setOnClickListener {
+            startActivity(Intent(this, FruitCalo::class.java))
+        }
 
         // Nút đo nhịp tim
         val btnHeartRate = findViewById<LinearLayout>(R.id.btnHeartRate)
@@ -112,6 +116,38 @@ class HomeScreen : AppCompatActivity() {
 
         // Load heart rate suggestion on first open
         loadHeartRateSuggestion()
+    }
+
+    private fun loadTotalCalories() {
+        val tvCalories = findViewById<TextView>(R.id.tvTotalCalories)
+        try {
+            val prefs = getSharedPreferences("health_data", MODE_PRIVATE)
+            val totalCalories = prefs.getInt("total_calories_today", 0)
+            val lastUpdate = prefs.getLong("last_calorie_update", 0L)
+
+            // Reset calo nếu là ngày mới
+            val currentTime = System.currentTimeMillis()
+            val oneDayMillis = 24 * 60 * 60 * 1000L
+
+            if (currentTime - lastUpdate > oneDayMillis) {
+                // Đã qua 1 ngày, reset về 0
+                prefs.edit().apply {
+                    putInt("total_calories_today", 0)
+                    apply()
+                }
+                tvCalories.text = "0 calo"
+            } else {
+                // Hiển thị tổng calo với text "calo" trên cùng dòng
+                tvCalories.text = if (totalCalories >= 1000) {
+                    String.format("%.1fK calo", totalCalories / 1000.0)
+                } else {
+                    "$totalCalories calo"
+                }
+            }
+        } catch (e: Exception) {
+            tvCalories.text = "0 calo"
+            Log.e("HomeScreen", "Error loading calories: ${e.message}")
+        }
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
@@ -213,6 +249,7 @@ class HomeScreen : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         loadHeartRateSuggestion()
+        loadTotalCalories() // Thêm dòng này để reload calo khi quay lại màn hình
     }
 
     override fun onDestroy() {

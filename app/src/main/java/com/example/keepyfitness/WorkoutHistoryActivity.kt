@@ -401,7 +401,7 @@ class WorkoutHistoryActivity : AppCompatActivity() {
                 else -> completionStatus.setTextColor(Color.parseColor("#F44336"))
             }
 
-            caloriesBurned.text = "${workout.caloriesBurned.toInt()} cal"
+            caloriesBurned.text = "Bạn đã đốt cháy ${workout.caloriesBurned.toInt()} calo"
 
             when (workout.exerciseId) {
                 1 -> exerciseIcon.setImageResource(R.drawable.pushup)
