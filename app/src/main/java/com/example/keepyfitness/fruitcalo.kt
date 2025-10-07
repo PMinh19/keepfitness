@@ -8,8 +8,8 @@ import android.graphics.BitmapFactory
 import android.os.Bundle
 import android.provider.MediaStore
 import android.util.Log
-import android.widget.Button
 import android.widget.ImageView
+import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -21,8 +21,8 @@ class FruitCalo : AppCompatActivity() {
     private lateinit var classifier: Classifier
     private lateinit var imageView: ImageView
     private lateinit var txtResult: TextView
-    private lateinit var btnGallery: Button
-    private lateinit var btnCamera: Button
+    private lateinit var btnGallery: LinearLayout
+    private lateinit var btnCamera: LinearLayout
 
     // Khai báo launchers ở đây để tránh bị recreate
     private val galleryLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
