@@ -244,7 +244,7 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Năng lượng cần đốt cháy"
+                            android:text="Năng lượng đã đốt cháy"
                             android:textSize="16sp"
                             android:textColor="#666666" />
 

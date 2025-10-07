@@ -182,8 +182,23 @@ class MainActivity : AppCompatActivity(), OnImageAvailableListener {
         // Initialize components
         formCorrector = FormCorrector()
         voiceCoach = VoiceCoach(this)
-
-
+        // Làm nóng TTS để khởi động sớm
+        voiceCoach.speak("")
+        // Gọi announceWorkoutStart khi TTS đã sẵn sàng
+        Handler(Looper.getMainLooper()).postDelayed({
+            if (voiceCoach.isInitialized) {
+                voiceCoach.announceWorkoutStart(exerciseDataModel.title, targetCount)
+                workoutAnnounced = true
+            } else {
+                // Nếu chưa sẵn sàng, thử lại sau 200ms
+                Handler(Looper.getMainLooper()).postDelayed({
+                    if (voiceCoach.isInitialized) {
+                        voiceCoach.announceWorkoutStart(exerciseDataModel.title, targetCount)
+                        workoutAnnounced = true
+                    }
+                }, 200)
+            }
+        }, 100)
 
         poseOverlay = findViewById(R.id.po)
         countTV = findViewById(R.id.textView)
@@ -517,10 +532,6 @@ class MainActivity : AppCompatActivity(), OnImageAvailableListener {
                     poseOverlay.setPose(results)
 
                     if (!timerStarted) startTimer()
-                    if (!workoutAnnounced) {
-                        voiceCoach.announceWorkoutStart(exerciseDataModel.title, targetCount)
-                        workoutAnnounced = true
-                    }
 
                     if (frameSkipCounter % 6 == 0) analyzeFormAndGiveFeedback(results)
                     detectAndCountExercise(results)
@@ -1047,4 +1058,3 @@ class MainActivity : AppCompatActivity(), OnImageAvailableListener {
         }
     }
 }
-

@@ -12,12 +12,14 @@ class VoiceCoach(private val context: Context) : TextToSpeech.OnInitListener {
     }
 
     private var textToSpeech: TextToSpeech? = null
-    private var isInitialized = false
+    private var _isInitialized = false
+    val isInitialized: Boolean
+        get() = _isInitialized
     private var speechQueue = mutableListOf<String>()
 
     // Throttling để tránh spam voice
     private var lastSpeechTime = 0L
-    private val speechCooldown = 800L
+    private val speechCooldown = 200L // Giảm cooldown xuống 200ms để giảm trễ
     private var lastFormFeedbackTime = 0L
     private val formFeedbackCooldown = 5000L // 5 giây
 
@@ -41,7 +43,7 @@ class VoiceCoach(private val context: Context) : TextToSpeech.OnInitListener {
 
                 tts.setSpeechRate(1.0f)
                 tts.setPitch(1.0f)
-                isInitialized = true
+                _isInitialized = true
                 Log.d(TAG, "TextToSpeech khởi tạo với tiếng Việt")
 
                 // Xử lý các message đang queue
@@ -53,28 +55,25 @@ class VoiceCoach(private val context: Context) : TextToSpeech.OnInitListener {
     }
 
     private fun processSpeechQueue() {
-        if (isInitialized && speechQueue.isNotEmpty()) {
-            val firstMessage = speechQueue.firstOrNull()
-            if (firstMessage != null) speakNow(firstMessage)
-            speechQueue.clear()
-        }
+        // Không phát lại các message cũ khi TTS vừa khởi tạo
+        speechQueue.clear()
     }
 
-    private fun speakNow(message: String) {
+    private fun speakNow(message: String, force: Boolean = false) {
+        // Nếu đang nói thì bỏ qua message mới để không bị dồn
+        if (isSpeaking()) return
         val currentTime = System.currentTimeMillis()
-        if (currentTime - lastSpeechTime < speechCooldown) return
+        if (!force && currentTime - lastSpeechTime < speechCooldown) return
         lastSpeechTime = currentTime
-
         textToSpeech?.setLanguage(Locale("vi", "VN"))
         textToSpeech?.speak(message, TextToSpeech.QUEUE_ADD, null, null)
     }
 
-    fun speak(message: String) {
-        if (isInitialized) {
-            speakNow(message)
+    fun speak(message: String, force: Boolean = false) {
+        if (_isInitialized) {
+            speakNow(message, force)
         } else {
-            speechQueue.clear()
-            speechQueue.add(message)
+            // Không queue lại message, chỉ bỏ qua nếu chưa sẵn sàng
         }
     }
 
@@ -84,7 +83,7 @@ class VoiceCoach(private val context: Context) : TextToSpeech.OnInitListener {
     }
 
     fun announceWorkoutStart(exerciseName: String, targetCount: Int) {
-        speak("Bắt đầu $exerciseName. Mục tiêu $targetCount lần. Bắt đầu nào!")
+        speak("Bắt đầu $exerciseName. Mục tiêu $targetCount lần. Bắt đầu nào!", force = true)
     }
 
     // Thông báo lỗi động tác
@@ -231,7 +230,7 @@ class VoiceCoach(private val context: Context) : TextToSpeech.OnInitListener {
         textToSpeech?.stop()
         textToSpeech?.shutdown()
         textToSpeech = null
-        isInitialized = false
+        _isInitialized = false
         speechQueue.clear()
     }
 

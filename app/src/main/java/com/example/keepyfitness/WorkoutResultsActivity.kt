@@ -78,7 +78,7 @@ class WorkoutResultsActivity : AppCompatActivity() {
             "${seconds} sec"
         }
 
-        caloriesBurnedText.text = "Bạn cần đốt cháy ${caloriesBurned.toInt()} calo"
+        caloriesBurnedText.text = "Bạn đã đốt cháy ${caloriesBurned.toInt()} calo"
 
         // Calculate completion percentage
         val percentage = if (targetCount > 0) {
