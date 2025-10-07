@@ -25,6 +25,7 @@ class HeartRateHistoryActivity : AppCompatActivity() {
     private lateinit var auth: FirebaseAuth
     private lateinit var db: FirebaseFirestore
     private lateinit var historyListView: ListView
+    private lateinit var emptyStateText: TextView
     private val heartRateList = mutableListOf<HeartRateData>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -35,6 +36,7 @@ class HeartRateHistoryActivity : AppCompatActivity() {
         auth = FirebaseAuth.getInstance()
         db = FirebaseFirestore.getInstance()
         historyListView = findViewById(R.id.historyListView)
+        emptyStateText = findViewById(R.id.emptyStateText)
 
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
@@ -57,11 +59,7 @@ class HeartRateHistoryActivity : AppCompatActivity() {
                         val heartRate = document.toObject(HeartRateData::class.java)
                         heartRateList.add(heartRate)
                     }
-                    val adapter = HeartRateHistoryAdapter(this, heartRateList)
-                    historyListView.adapter = adapter
-                    if (heartRateList.isEmpty()) {
-                        showCustomToast("Chưa có lịch sử nhịp tim.")
-                    }
+                    updateUI()
                 }
                 .addOnFailureListener { e ->
                     showCustomToast("Lỗi tải lịch sử nhịp tim: ${e.message}")
@@ -93,13 +91,22 @@ class HeartRateHistoryActivity : AppCompatActivity() {
                 )
                 heartRateList.add(heartRate)
             }
-            val adapter = HeartRateHistoryAdapter(this, heartRateList)
-            historyListView.adapter = adapter
-            if (heartRateList.isEmpty()) {
-                showCustomToast("Chưa có lịch sử nhịp tim trong bộ nhớ.")
-            }
+            updateUI()
         } catch (e: Exception) {
             showCustomToast("Lỗi tải lịch sử từ bộ nhớ: ${e.message}")
+            updateUI()
+        }
+    }
+
+    private fun updateUI() {
+        if (heartRateList.isEmpty()) {
+            historyListView.visibility = View.GONE
+            emptyStateText.visibility = View.VISIBLE
+        } else {
+            historyListView.visibility = View.VISIBLE
+            emptyStateText.visibility = View.GONE
+            val adapter = HeartRateHistoryAdapter(this, heartRateList)
+            historyListView.adapter = adapter
         }
     }
 

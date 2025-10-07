@@ -689,18 +689,10 @@ class HeartRateActivity : AppCompatActivity(), SurfaceHolder.Callback {
             if (finalBpm > 0) "Đo thành công: ${finalBpm} BPM"
             else "Đo không thành công", Toast.LENGTH_LONG).show()
 
-        // Mở HeartRateHistoryActivity
+        // Mở HeartRateHistoryActivity và finish activity hiện tại
         val intent = Intent(this, HeartRateHistoryActivity::class.java)
         startActivity(intent)
-
-        // Không tự động finish - để người dùng tự quyết định
-        // Thay vào đó, chỉ finish sau khi người dùng xem kết quả
-        handler.postDelayed({
-            if (!isDestroyed) {
-                // Chỉ finish nếu người dùng không tương tác trong 10 giây
-                updateUI("💡 Nhấn nút Back để quay lại màn hình chính")
-            }
-        }, 10000)
+        finish() // Đóng HeartRateActivity để khi bấm back từ History sẽ về HomeScreen
     }
 
     private fun saveHeartRateToFirestore(bpm: Int, status: String, suggestion: String, duration: Long) {
