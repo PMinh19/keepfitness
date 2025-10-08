@@ -1,6 +1,10 @@
 package com.example.keepyfitness
 
+import android.app.AlarmManager
+import android.app.PendingIntent
 import android.app.TimePickerDialog
+import android.content.Context
+import android.content.Intent
 import android.os.Bundle
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
@@ -107,6 +111,8 @@ class AddScheduleActivity : AppCompatActivity() {
                     .document(scheduleId)
                     .set(schedule, SetOptions.merge())
                     .addOnSuccessListener {
+                        // Đặt lịch thông báo
+                        scheduleNotification(time, days, scheduleId)
                         Toast.makeText(this, "Lịch tập đã được lưu!", Toast.LENGTH_SHORT).show()
                         finish()
                     }
@@ -122,6 +128,8 @@ class AddScheduleActivity : AppCompatActivity() {
             if (editScheduleId != null) {
                 val user = auth.currentUser
                 if (user != null) {
+                    // Hủy thông báo trước khi xóa
+                    cancelNotification(editScheduleId)
                     db.collection("users").document(user.uid).collection("schedules")
                         .document(editScheduleId)
                         .delete()
@@ -134,6 +142,74 @@ class AddScheduleActivity : AppCompatActivity() {
                         }
                 }
             }
+        }
+    }
+
+    private fun scheduleNotification(time: String, days: List<String>, scheduleId: String) {
+        val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val timeParts = time.split(":")
+        if (timeParts.size != 2) return
+
+        val hour = timeParts[0].toIntOrNull() ?: return
+        val minute = timeParts[1].toIntOrNull() ?: return
+
+        // Map ngày tiếng Việt sang Calendar day
+        val dayMap = mapOf(
+            "Chủ Nhật" to Calendar.SUNDAY,
+            "Thứ Hai" to Calendar.MONDAY,
+            "Thứ Ba" to Calendar.TUESDAY,
+            "Thứ Tư" to Calendar.WEDNESDAY,
+            "Thứ Năm" to Calendar.THURSDAY,
+            "Thứ Sáu" to Calendar.FRIDAY,
+            "Thứ Bảy" to Calendar.SATURDAY
+        )
+
+        days.forEachIndexed { index, day ->
+            val calendarDay = dayMap[day] ?: return@forEachIndexed
+            val calendar = Calendar.getInstance().apply {
+                set(Calendar.HOUR_OF_DAY, hour)
+                set(Calendar.MINUTE, minute)
+                set(Calendar.SECOND, 0)
+                set(Calendar.DAY_OF_WEEK, calendarDay)
+
+                // Nếu thời gian đã qua trong tuần này, chuyển sang tuần sau
+                if (timeInMillis <= System.currentTimeMillis()) {
+                    add(Calendar.WEEK_OF_YEAR, 1)
+                }
+            }
+
+            val intent = Intent(this, WorkoutNotificationReceiver::class.java)
+            val requestCode = (scheduleId.hashCode() + index)
+            val pendingIntent = PendingIntent.getBroadcast(
+                this,
+                requestCode,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+
+            // Đặt lịch lặp lại hàng tuần
+            alarmManager.setRepeating(
+                AlarmManager.RTC_WAKEUP,
+                calendar.timeInMillis,
+                AlarmManager.INTERVAL_DAY * 7, // Lặp lại mỗi tuần
+                pendingIntent
+            )
+        }
+    }
+
+    private fun cancelNotification(scheduleId: String) {
+        val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        // Hủy tất cả các thông báo liên quan đến schedule này (tối đa 7 ngày)
+        for (i in 0..6) {
+            val intent = Intent(this, WorkoutNotificationReceiver::class.java)
+            val requestCode = (scheduleId.hashCode() + i)
+            val pendingIntent = PendingIntent.getBroadcast(
+                this,
+                requestCode,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            alarmManager.cancel(pendingIntent)
         }
     }
 }

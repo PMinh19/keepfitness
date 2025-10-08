@@ -490,33 +490,37 @@ class HeartRateActivity : AppCompatActivity(), SurfaceHolder.Callback {
         }
     }
 
+    // 🔹 Thuật toán nâng cao (fallback sau khi peak detection & model TensorFlow thất bại)
     private fun calculateHeartRateAdvanced(values: List<Double>): Int {
-        if (values.size < 60) return 0
+        if (values.size < 60) return 0 // cần ít nhất 60 samples (~2s dữ liệu)
 
         try {
-            // Sử dụng thuật toán FFT-based như trong DeepTricorder
-            val filteredValues = applyFFTFilter(values)
-            val peaks = findPeaksFFT(filteredValues)
+            // 1️⃣ FFT-based filtering & peak detection
+            val filteredValues = applyFFTFilter(values)   // lọc tín hiệu (high-pass, bỏ DC component)
+            val peaks = findPeaksFFT(filteredValues)      // tìm đỉnh dựa vào biên độ sau khi lọc
 
             if (peaks.size >= 2) {
+                // Tính khoảng cách giữa các peak liên tiếp (intervals)
                 val intervals = mutableListOf<Double>()
                 for (i in 1 until peaks.size) {
                     intervals.add((peaks[i] - peaks[i - 1]).toDouble())
                 }
 
                 if (intervals.isNotEmpty()) {
-                    // Loại bỏ outliers và tính trung bình
-                    val validIntervals = intervals.filter { it in 15.0..60.0 } // 30-120 BPM
+                    // Loại bỏ outliers (nhiễu) – chỉ chấp nhận interval trong khoảng 15–60 frames (~30–120 BPM)
+                    val validIntervals = intervals.filter { it in 15.0..60.0 }
                     if (validIntervals.size >= 2) {
+                        // Tính khoảng cách trung bình giữa các peaks
                         val avgInterval = validIntervals.average()
-                        val fps = 30.0
+                        val fps = 30.0 // camera giả định 30 FPS
+                        // Công thức BPM = 60 * FPS / avgInterval
                         val bpm = (60.0 * fps / avgInterval).roundToInt()
-                        return if (bpm in 30..200) bpm else 0
+                        return if (bpm in 30..200) bpm else 0 // validate kết quả
                     }
                 }
             }
 
-            // Fallback: sử dụng thuật toán correlation
+            // 2️⃣ Nếu FFT không tìm đủ peaks → fallback tiếp: Correlation-based
             return calculateHeartRateCorrelation(values)
 
         } catch (e: Exception) {
@@ -525,8 +529,8 @@ class HeartRateActivity : AppCompatActivity(), SurfaceHolder.Callback {
         }
     }
 
+    // 🔹 Lọc tín hiệu kiểu high-pass (giản lược FFT)
     private fun applyFFTFilter(values: List<Double>): List<Double> {
-        // Simplified FFT-like filtering
         val windowSize = 10
         val filtered = mutableListOf<Double>()
 
@@ -535,7 +539,7 @@ class HeartRateActivity : AppCompatActivity(), SurfaceHolder.Callback {
             val end = minOf(values.size - 1, i + windowSize / 2)
             val window = values.subList(start, end + 1)
 
-            // Apply simple high-pass filter
+            // High-pass filter = lấy giá trị hiện tại trừ đi trung bình trong cửa sổ
             val mean = window.average()
             val filteredValue = values[i] - mean
             filtered.add(filteredValue)
@@ -544,9 +548,10 @@ class HeartRateActivity : AppCompatActivity(), SurfaceHolder.Callback {
         return filtered
     }
 
+    // 🔹 Tìm peaks sau khi lọc FFT
     private fun findPeaksFFT(values: List<Double>): List<Int> {
         val peaks = mutableListOf<Int>()
-        val threshold = values.map { kotlin.math.abs(it) }.average() * 0.3
+        val threshold = values.map { kotlin.math.abs(it) }.average() * 0.3 // ngưỡng dựa trên biên độ trung bình
 
         for (i in 2 until values.size - 2) {
             val current = kotlin.math.abs(values[i])
@@ -555,11 +560,12 @@ class HeartRateActivity : AppCompatActivity(), SurfaceHolder.Callback {
             val next1 = kotlin.math.abs(values[i + 1])
             val next2 = kotlin.math.abs(values[i + 2])
 
+            // Peak phải cao hơn threshold và lớn hơn các điểm xung quanh
             if (current > threshold &&
                 current > prev1 && current > prev2 &&
                 current > next1 && current > next2) {
 
-                val minDistance = 20 // Minimum 20 frames between peaks
+                val minDistance = 20 // ít nhất 20 frames (0.67s ở 30fps) giữa 2 peaks
                 val isFarEnough = peaks.isEmpty() || (i - peaks.last()) >= minDistance
 
                 if (isFarEnough) {
@@ -571,13 +577,14 @@ class HeartRateActivity : AppCompatActivity(), SurfaceHolder.Callback {
         return peaks
     }
 
+    // 🔹 Ước lượng nhịp tim bằng correlation (tương quan tín hiệu lặp lại)
     private fun calculateHeartRateCorrelation(values: List<Double>): Int {
-        // Correlation-based heart rate estimation
-        if (values.size < 90) return 0
+        if (values.size < 90) return 0 // cần đủ ít nhất 3s dữ liệu
 
-        val segmentSize = 30 // 1 second segments
+        val segmentSize = 30 // 1 giây dữ liệu (30 frames)
         val correlations = mutableListOf<Double>()
 
+        // So sánh correlation giữa các đoạn liên tiếp (sliding window)
         for (i in 0 until values.size - segmentSize * 2) {
             val segment1 = values.subList(i, i + segmentSize)
             val segment2 = values.subList(i + segmentSize, i + segmentSize * 2)
@@ -590,7 +597,7 @@ class HeartRateActivity : AppCompatActivity(), SurfaceHolder.Callback {
             val maxCorrelation = correlations.maxOrNull() ?: 0.0
             val maxIndex = correlations.indexOf(maxCorrelation)
 
-            if (maxCorrelation > 0.3) { // Threshold for valid correlation
+            if (maxCorrelation > 0.3) { // chỉ chấp nhận khi độ tương quan đủ mạnh
                 val bpm = (60.0 * 30.0 / (maxIndex + segmentSize)).roundToInt()
                 return if (bpm in 30..200) bpm else 0
             }
@@ -599,6 +606,7 @@ class HeartRateActivity : AppCompatActivity(), SurfaceHolder.Callback {
         return 0
     }
 
+    // 🔹 Hàm tính hệ số tương quan giữa 2 đoạn tín hiệu
     private fun calculateCorrelation(x: List<Double>, y: List<Double>): Double {
         if (x.size != y.size) return 0.0
 
