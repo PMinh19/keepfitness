@@ -40,6 +40,12 @@ class HomeScreen : AppCompatActivity() {
         }
     }
 
+    // ActivityResultLauncher để làm mới calories sau khi quét thức ăn
+    private val scanFoodLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        // Reload calories dù result code là gì (vì có thể đã quét xong)
+        loadRemainingCalories()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -58,7 +64,7 @@ class HomeScreen : AppCompatActivity() {
         // Nút quét calo
         val btnScanCalo = findViewById<LinearLayout>(R.id.btnScanCalo)
         btnScanCalo.setOnClickListener {
-            startActivity(Intent(this, FruitCalo::class.java))
+            scanFoodLauncher.launch(Intent(this, FruitCalo::class.java))
         }
 
         // Nút đo nhịp tim
@@ -96,6 +102,18 @@ class HomeScreen : AppCompatActivity() {
             startActivity(Intent(this, WorkoutHistoryActivity::class.java))
         }
 
+        // Nút hồ sơ người dùng
+        val btnUserProfile = findViewById<LinearLayout>(R.id.btnUserProfile)
+        btnUserProfile.setOnClickListener {
+            startActivity(Intent(this, UserProfileActivity::class.java))
+        }
+
+        // Nút cài đặt thông báo
+        val btnNotificationSettings = findViewById<LinearLayout>(R.id.btnNotificationSettings)
+        btnNotificationSettings.setOnClickListener {
+            startActivity(Intent(this, NotificationSettingsActivity::class.java))
+        }
+
         // Logout button
         val logoutButton = findViewById<CardView>(R.id.logoutButton)
         logoutButton.setOnClickListener {
@@ -130,6 +148,33 @@ class HomeScreen : AppCompatActivity() {
     private fun loadRemainingCalories() {
         val tvCalories = findViewById<TextView>(R.id.tvTotalCalories)
         val user = auth.currentUser ?: run {
+            tvCalories.text = "Còn cần đốt: 0 calo"
+            return
+        }
+        val calendar = Calendar.getInstance()
+        calendar.set(Calendar.HOUR_OF_DAY, 0)
+        calendar.set(Calendar.MINUTE, 0)
+        calendar.set(Calendar.SECOND, 0)
+        calendar.set(Calendar.MILLISECOND, 0)
+        val startOfDay = calendar.timeInMillis
+        calendar.add(Calendar.DAY_OF_MONTH, 1)
+        val endOfDay = calendar.timeInMillis
+
+        // Load goal from Firestore or calculate BMR, then subtract burned calories
+        loadGoalAndCalculateRemaining(user.uid, startOfDay, endOfDay, tvCalories)
+    }
+
+    private fun loadGoalAndCalculateRemaining(uid: String, startOfDay: Long, endOfDay: Long, tvCalories: TextView) {
+        Log.d("HomeScreen", "Loading consumed and burned calories")
+
+        // Load consumed and burned calories directly
+        loadCaloriesConsumedAndBurned(startOfDay, endOfDay, tvCalories)
+    }
+
+    // Keep old method for backward compatibility but not used in main flow
+    private fun loadRemainingCaloriesOld() {
+        val tvCalories = findViewById<TextView>(R.id.tvTotalCalories)
+        val user = auth.currentUser ?: run {
             tvCalories.text = "0 calo"
             return
         }
@@ -142,64 +187,114 @@ class HomeScreen : AppCompatActivity() {
         calendar.add(Calendar.DAY_OF_MONTH, 1)
         val endOfDay = calendar.timeInMillis
 
-        db.collection("users").document(user.uid).collection("workouts")
+        // First, get the daily goal
+        db.collection("users").document(user.uid).collection("goals").document("daily").get()
+            .addOnSuccessListener { goalDoc ->
+                val goal = if (goalDoc.exists()) {
+                    goalDoc.getDouble("dailyCalorieGoal") ?: 500.0
+                } else {
+                    // If no custom goal, calculate BMR
+                    calculateBMR(user.uid) { bmr ->
+                        runOnUiThread {
+                            loadCaloriesConsumedAndBurned(startOfDay, endOfDay, tvCalories)
+                        }
+                    }
+                    return@addOnSuccessListener
+                }
+                loadCaloriesConsumedAndBurned(startOfDay, endOfDay, tvCalories)
+            }
+            .addOnFailureListener {
+                // Fallback to BMR or default
+                calculateBMR(user.uid) { bmr ->
+                    runOnUiThread {
+                        loadCaloriesConsumedAndBurned(startOfDay, endOfDay, tvCalories)
+                    }
+                }
+            }
+    }
+
+    private fun loadCaloriesConsumedAndBurned(startOfDay: Long, endOfDay: Long, tvCalories: TextView) {
+        val user = auth.currentUser ?: return
+
+        // Load consumed calories from foodIntake
+        db.collection("users").document(user.uid).collection("foodIntake")
             .whereGreaterThanOrEqualTo("date", startOfDay)
             .whereLessThan("date", endOfDay)
             .get()
-            .addOnSuccessListener { querySnapshot ->
-                var totalBurned = 0.0
-                for (document in querySnapshot.documents) {
-                    val calories = document.getDouble("caloriesBurned") ?: 0.0
-                    totalBurned += calories
+            .addOnSuccessListener { consumedSnapshot ->
+                var totalConsumed = 0.0
+                for (document in consumedSnapshot.documents) {
+                    val calories = document.getDouble("caloriesConsumed") ?: 0.0
+                    totalConsumed += calories
                 }
-                val remaining = maxOf(0.0, dailyGoal - totalBurned)
-                tvCalories.text = if (remaining >= 1000) {
-                    String.format("%.1fK calo", remaining / 1000.0)
-                } else {
-                    "${remaining.toInt()} calo"
+
+                // Load BMR
+                calculateBMR(user.uid) { bmr ->
+                    runOnUiThread {
+                        // Load burned calories from workouts
+                        db.collection("users").document(user.uid).collection("workouts")
+                            .whereGreaterThanOrEqualTo("date", startOfDay)
+                            .whereLessThan("date", endOfDay)
+                            .get()
+                            .addOnSuccessListener { burnedSnapshot ->
+                                var totalBurned = 0.0
+                                for (document in burnedSnapshot.documents) {
+                                    val calories = document.getDouble("caloriesBurned") ?: 0.0
+                                    totalBurned += calories
+                                }
+
+                                Log.d("HomeScreen", "Consumed: ${totalConsumed.toInt()}, BMR: ${bmr.toInt()}, Burned: ${totalBurned.toInt()}")
+
+                                if (totalConsumed < bmr) {
+                                    // Cảnh báo ăn ít quá
+                                    val deficit = (bmr - totalConsumed).toInt()
+                                    tvCalories.text = "⚠️ Ăn ít quá! Thiếu ${deficit} calo so với BMR cơ bản"
+                                } else {
+                                    // Tính calo cần đốt = consumed - BMR - burned
+                                    val caloriesToBurn = totalConsumed - bmr - totalBurned
+                                    if (caloriesToBurn > 0) {
+                                        tvCalories.text = "📥${totalConsumed.toInt()} | 🔥${totalBurned.toInt()} | Còn đốt: ${caloriesToBurn.toInt()} calo"
+                                    } else {
+                                        val surplus = (-caloriesToBurn).toInt()
+                                        tvCalories.text = "📥${totalConsumed.toInt()} | 🔥${totalBurned.toInt()} | Đủ rồi! Dư ${surplus} calo"
+                                    }
+                                }
+                            }
+                            .addOnFailureListener { e ->
+                                Log.e("HomeScreen", "Error loading burned calories: ${e.message}")
+                                tvCalories.text = "📥${totalConsumed.toInt()} | Lỗi tải calo đốt"
+                            }
+                    }
                 }
             }
             .addOnFailureListener { e ->
-                tvCalories.text = "0 calo"
-                Log.e("HomeScreen", "Error loading remaining calories: ${e.message}")
+                tvCalories.text = "Lỗi tải calo tiêu thụ"
+                Log.e("HomeScreen", "Error loading consumed calories: ${e.message}")
             }
     }
 
-    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == LOCATION_PERMISSION_REQUEST) {
-            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                showWeatherSuggestion()
-            } else {
-                val tvSuggestion = findViewById<TextView>(R.id.tvWeatherSuggestion)
-                tvSuggestion.text = "❌ Cần quyền vị trí để lấy gợi ý thời tiết"
-
-                AlertDialog.Builder(this)
-                    .setTitle("Quyền vị trí bị từ chối")
-                    .setMessage("Không thể lấy gợi ý tập luyện theo thời tiết nếu không cấp quyền vị trí.")
-                    .setPositiveButton("OK", null)
-                    .setCancelable(true)
-                    .show()
-            }
-        }
-    }
-
-    private fun showWeatherSuggestion() {
-        val tvSuggestion = findViewById<TextView>(R.id.tvWeatherSuggestion)
-        tvSuggestion.text = "⏳ Đang lấy vị trí và thời tiết...\n(Có thể mất 10-20 giây)"
-
-        try {
-            weatherHelper.getWeatherSuggestion { suggestion ->
-                runOnUiThread {
-                    tvSuggestion.text = suggestion
+    private fun calculateBMR(uid: String, callback: (Double) -> Unit) {
+        db.collection("users").document(uid).get()
+            .addOnSuccessListener { doc ->
+                if (doc.exists()) {
+                    val age = doc.getLong("age")?.toInt() ?: 25
+                    val weight = doc.getDouble("weight") ?: 70.0
+                    val height = doc.getDouble("height") ?: 170.0
+                    val gender = doc.getString("gender") ?: "Male"
+                    val bmr = if (gender == "Male") {
+                        88.362 + (13.397 * weight) + (4.799 * height) - (5.677 * age)
+                    } else {
+                        447.593 + (9.247 * weight) + (3.098 * height) - (4.330 * age)
+                    }
+                    // Use BMR for basal metabolic rate
+                    callback(bmr)
+                } else {
+                    callback(500.0) // Default
                 }
             }
-        } catch (e: Exception) {
-            e.printStackTrace()
-            runOnUiThread {
-                tvSuggestion.text = "❌ Lỗi: ${e.message}\n\nVui lòng thử lại sau."
+            .addOnFailureListener {
+                callback(500.0)
             }
-        }
     }
 
     private fun loadHeartRateSuggestion() {
@@ -224,6 +319,17 @@ class HomeScreen : AppCompatActivity() {
         } catch (e: Exception) {
             tvHr.text = "🫀 Không thể tải gợi ý nhịp tim"
             showCustomToast("Lỗi tải nhịp tim: ${e.message}")
+        }
+    }
+
+    private fun showWeatherSuggestion() {
+        val tvWeather = findViewById<TextView>(R.id.tvWeatherSuggestion)
+        tvWeather.text = "🌤️ Đang lấy gợi ý thời tiết..."
+
+        weatherHelper.getWeatherSuggestion { suggestion ->
+            runOnUiThread {
+                tvWeather.text = suggestion
+            }
         }
     }
 
@@ -271,6 +377,18 @@ class HomeScreen : AppCompatActivity() {
         super.onDestroy()
         // Cleanup WeatherHelper
         weatherHelper.cleanup()
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == LOCATION_PERMISSION_REQUEST) {
+            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                showWeatherSuggestion()
+            } else {
+                val tvWeather = findViewById<TextView>(R.id.tvWeatherSuggestion)
+                tvWeather.text = "🌤️ Cần quyền vị trí để hiển thị gợi ý thời tiết"
+            }
+        }
     }
 
     private fun showLogoutConfirmation() {

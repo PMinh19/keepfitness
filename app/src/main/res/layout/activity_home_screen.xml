@@ -168,8 +168,8 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Bạn cần đốt cháy"
-                            android:textSize="12sp"
+                            android:text="Tóm tắt Calories hôm nay"
+                            android:textSize="11sp"
                             android:textColor="#666666"
                             android:fontFamily="sans-serif-medium"
                             android:layout_marginBottom="4dp" />
@@ -178,8 +178,8 @@
                             android:id="@+id/tvTotalCalories"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="0 calo"
-                            android:textSize="24sp"
+                            android:text="📥0 | 🔥0 | Net: 0"
+                            android:textSize="13sp"
                             android:textStyle="bold"
                             android:textColor="#F57C00"
                             android:gravity="center" />
@@ -338,6 +338,85 @@
                 android:layout_marginTop="24dp"
                 android:layout_marginEnd="20dp"
                 android:orientation="vertical">
+                <!-- User Profile Button -->
+                <androidx.cardview.widget.CardView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="16dp"
+                    app:cardCornerRadius="16dp"
+                    app:cardElevation="4dp"
+                    android:background="@drawable/background">
+
+                    <LinearLayout
+                        android:id="@+id/btnUserProfile"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:padding="18dp"
+                        android:background="?attr/selectableItemBackground">
+
+                        <androidx.cardview.widget.CardView
+                            android:layout_width="40dp"
+                            android:layout_height="40dp"
+                            app:cardCornerRadius="20dp"
+                            app:cardElevation="0dp">
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="match_parent"
+                                android:background="@drawable/start_workout_gradient"
+                                android:gravity="center">
+
+                                <ImageView
+                                    android:layout_width="22dp"
+                                    android:layout_height="22dp"
+                                    android:src="@android:drawable/ic_menu_manage"
+                                    app:tint="@android:color/white"
+                                    android:contentDescription="Profile icon" />
+
+                            </LinearLayout>
+
+                        </androidx.cardview.widget.CardView>
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:layout_marginStart="16dp"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Hồ sơ người dùng"
+                                android:textSize="16sp"
+                                android:textStyle="bold"
+                                android:textColor="#1B5E20"
+                                android:fontFamily="sans-serif-medium" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Cập nhật thông tin cá nhân"
+                                android:textSize="13sp"
+                                android:textColor="#666666"
+                                android:layout_marginTop="2dp"
+                                android:fontFamily="sans-serif-medium" />
+
+                        </LinearLayout>
+
+                        <ImageView
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:src="@android:drawable/ic_menu_send"
+                            app:tint="#4CAF50"
+                            android:contentDescription="Arrow icon" />
+
+                    </LinearLayout>
+
+                </androidx.cardview.widget.CardView>
+
                 <!-- Schedule Workout Button -->
                 <androidx.cardview.widget.CardView
                     android:layout_width="match_parent"
@@ -649,6 +728,85 @@
                             android:layout_height="20dp"
                             android:src="@android:drawable/ic_menu_send"
                             app:tint="#FF4444"
+                            android:contentDescription="Arrow icon" />
+
+                    </LinearLayout>
+
+                </androidx.cardview.widget.CardView>
+
+                <!-- Notification Settings Button -->
+                <androidx.cardview.widget.CardView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="16dp"
+                    app:cardCornerRadius="16dp"
+                    app:cardElevation="4dp"
+                    app:cardBackgroundColor="@android:color/white">
+
+                    <LinearLayout
+                        android:id="@+id/btnNotificationSettings"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:padding="18dp"
+                        android:background="?attr/selectableItemBackground">
+
+                        <androidx.cardview.widget.CardView
+                            android:layout_width="40dp"
+                            android:layout_height="40dp"
+                            app:cardCornerRadius="20dp"
+                            app:cardElevation="0dp">
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="match_parent"
+                                android:background="@drawable/history_gradient"
+                                android:gravity="center">
+
+                                <ImageView
+                                    android:layout_width="22dp"
+                                    android:layout_height="22dp"
+                                    android:src="@android:drawable/ic_popup_reminder"
+                                    app:tint="@android:color/white"
+                                    android:contentDescription="Notification icon" />
+
+                            </LinearLayout>
+
+                        </androidx.cardview.widget.CardView>
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:layout_marginStart="16dp"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Cài đặt thông báo"
+                                android:textSize="16sp"
+                                android:textStyle="bold"
+                                android:textColor="#1B5E20"
+                                android:fontFamily="sans-serif-medium" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Quản lý nhắc nhở"
+                                android:textSize="13sp"
+                                android:textColor="#666666"
+                                android:layout_marginTop="2dp"
+                                android:fontFamily="sans-serif-medium" />
+
+                        </LinearLayout>
+
+                        <ImageView
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:src="@android:drawable/ic_menu_send"
+                            app:tint="#9C27B0"
                             android:contentDescription="Arrow icon" />
 
                     </LinearLayout>

@@ -125,6 +125,71 @@ class FruitCalo : AppCompatActivity() {
         }
     }
 
+    private fun showWeightInputDialog(foodName: String, confidence: Int, onWeightEntered: (Int) -> Unit) {
+        val dialogView = layoutInflater.inflate(R.layout.dialog_weight_input, null)
+        val editTextWeight = dialogView.findViewById<android.widget.EditText>(R.id.editTextWeight)
+        val textViewFood = dialogView.findViewById<android.widget.TextView>(R.id.textViewFood)
+        val textViewConfidence = dialogView.findViewById<android.widget.TextView>(R.id.textViewConfidence)
+
+        textViewFood.text = "🍽️ $foodName"
+        textViewConfidence.text = "📊 Độ tin cậy: $confidence%"
+
+        // Đặt giá trị mặc định
+        editTextWeight.setText("100")
+
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Nhập khối lượng món ăn")
+            .setView(dialogView)
+            .setPositiveButton("Tính calo") { _, _ ->
+                val weightText = editTextWeight.text.toString()
+                val grams = weightText.toIntOrNull() ?: 100
+                onWeightEntered(grams)
+            }
+            .setNegativeButton("Hủy", null)
+            .setCancelable(false)
+            .show()
+    }
+
+    private fun processMultipleFoods(recognitions: List<Recognition>, index: Int, weights: MutableList<Pair<String, Int>>) {
+        if (index >= recognitions.size) {
+            // Tất cả đã nhập xong, tính tổng calo
+            var totalCalories = 0
+            val resultText = StringBuilder()
+            resultText.append("🎯 Phát hiện ${recognitions.size} món ăn:\n\n")
+
+            weights.forEachIndexed { i, (foodName, grams) ->
+                val calories = FoodCalorieData.getCalories(foodName, grams)
+                totalCalories += calories
+                val recognition = recognitions.find { it.title == foodName }
+                val confidence = (recognition?.confidence ?: 0f * 100).toInt()
+
+                resultText.append("${i + 1}. 🍽️ $foodName (${grams}g)\n")
+                resultText.append("   🔥 Calo: $calories kcal\n")
+                resultText.append("   📊 Độ tin cậy: $confidence%\n\n")
+
+                Log.d("FruitCalo", "✅ Detected: $foodName - $grams g - $calories kcal")
+            }
+
+            // Hiển thị tổng calo
+            resultText.append("━━━━━━━━━━━━━━━━━━━\n")
+            resultText.append("🔥 Tổng calo: $totalCalories kcal\n")
+            resultText.append("\n💡 ${getTotalCalorieAdvice(totalCalories)}")
+
+            txtResult.text = resultText.toString()
+            saveTotalCalories(totalCalories)
+            return
+        }
+
+        val recognition = recognitions[index]
+        val foodName = recognition.title
+        val confidence = (recognition.confidence * 100).toInt()
+
+        showWeightInputDialog(foodName, confidence) { grams ->
+            weights.add(Pair(foodName, grams))
+            processMultipleFoods(recognitions, index + 1, weights)
+        }
+    }
+
     private fun processImage(bitmap: Bitmap?) {
         bitmap?.let {
             try {
@@ -162,44 +227,26 @@ class FruitCalo : AppCompatActivity() {
                 var totalCalories = 0
 
                 if (validRecognitions.size == 1) {
-                    // Chỉ có 1 món - hiển thị chi tiết hơn
+                    // Chỉ có 1 món - hiển thị chi tiết hơn và cho nhập khối lượng
                     val recognition = validRecognitions[0]
                     val foodName = recognition.title
                     val confidence = (recognition.confidence * 100).toInt()
-                    val calories = FoodCalorieData.getCalories(foodName)
 
-                    val nutritionalInfo = FoodCalorieData.getNutritionalInfo(foodName)
-                    resultText.append("$nutritionalInfo\n")
-                    resultText.append("📊 Độ tin cậy: $confidence%")
+                    // Hiển thị dialog nhập khối lượng
+                    showWeightInputDialog(foodName, confidence) { grams ->
+                        val calories = FoodCalorieData.getCalories(foodName, grams)
+                        val nutritionalInfo = FoodCalorieData.getNutritionalInfo(foodName, grams)
 
-                    totalCalories = calories
-                } else {
-                    // Nhiều món - hiển thị dạng list
-                    resultText.append("🎯 Phát hiện ${validRecognitions.size} món ăn:\n\n")
-
-                    validRecognitions.forEachIndexed { index, recognition ->
-                        val foodName = recognition.title
-                        val confidence = (recognition.confidence * 100).toInt()
-                        val calories = FoodCalorieData.getCalories(foodName)
-                        totalCalories += calories
-
-                        resultText.append("${index + 1}. 🍽️ $foodName\n")
-                        resultText.append("   🔥 Calo: ~$calories kcal\n")
-                        resultText.append("   📊 Độ tin cậy: $confidence%\n\n")
-
-                        Log.d("FruitCalo", "✅ Detected: $foodName - ${recognition.confidence} - $calories kcal")
+                        runOnUiThread {
+                            txtResult.text = nutritionalInfo
+                            saveTotalCalories(calories)
+                        }
                     }
-
-                    // Hiển thị tổng calo
-                    resultText.append("━━━━━━━━━━━━━━━━━━━\n")
-                    resultText.append("🔥 Tổng calo: ~$totalCalories kcal\n")
-                    resultText.append("\n💡 ${getTotalCalorieAdvice(totalCalories)}")
+                    return@let
+                } else {
+                    // Nhiều món - nhập khối lượng cho từng món
+                    processMultipleFoods(validRecognitions, 0, mutableListOf())
                 }
-
-                txtResult.text = resultText.toString()
-
-                // Lưu tổng calo vào SharedPreferences
-                saveTotalCalories(totalCalories)
 
             } catch (e: Exception) {
                 Log.e("FruitCalo", "Error processing image", e)
@@ -217,17 +264,69 @@ class FruitCalo : AppCompatActivity() {
     private fun saveTotalCalories(calories: Int) {
         try {
             val prefs = getSharedPreferences("health_data", MODE_PRIVATE)
-            // Thay thế hoàn toàn thay vì cộng dồn
+            // Lưu calo NẠP VÀO từ thức ăn (calories consumed)
             prefs.edit().apply {
-                putInt("total_calories_today", calories)
-                putLong("last_calorie_update", System.currentTimeMillis())
+                putInt("calories_consumed_today", calories)
+                putLong("last_food_scan_time", System.currentTimeMillis())
                 apply()
             }
 
-            Log.d("FruitCalo", "Saved calories: $calories kcal (replaced old value)")
+            Log.d("FruitCalo", "Saved calories consumed: $calories kcal (from food)")
+
+            // Lưu lên Firestore nếu đã đăng nhập
+            saveFoodCaloriesToFirestore(calories)
         } catch (e: Exception) {
             Log.e("FruitCalo", "Error saving calories", e)
         }
+    }
+
+    private fun saveFoodCaloriesToFirestore(calories: Int) {
+        val user = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+        if (user == null) {
+            Log.w("FruitCalo", "User not logged in, cannot save to Firestore")
+            return
+        }
+
+        val db = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+
+        val calendar = java.util.Calendar.getInstance()
+        calendar.set(java.util.Calendar.HOUR_OF_DAY, 0)
+        calendar.set(java.util.Calendar.MINUTE, 0)
+        calendar.set(java.util.Calendar.SECOND, 0)
+        calendar.set(java.util.Calendar.MILLISECOND, 0)
+        val dayId = calendar.timeInMillis.toString()
+
+        Log.d("FruitCalo", "Saving to Firestore - User: ${user.uid}, DayId: $dayId, Calories: $calories")
+
+        val foodData = hashMapOf(
+            "caloriesConsumed" to calories,
+            "date" to System.currentTimeMillis(),
+            "dayId" to dayId
+        )
+
+        db.collection("users").document(user.uid)
+            .collection("foodIntake").document(dayId)
+            .set(foodData)
+            .addOnSuccessListener {
+                Log.d("FruitCalo", "✅ Food calories saved to Firestore successfully: $calories kcal")
+                runOnUiThread {
+                    android.widget.Toast.makeText(
+                        this@FruitCalo,
+                        "✅ Đã lưu $calories calo vào hệ thống",
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+            .addOnFailureListener { e ->
+                Log.e("FruitCalo", "❌ Error saving to Firestore: ${e.message}", e)
+                runOnUiThread {
+                    android.widget.Toast.makeText(
+                        this@FruitCalo,
+                        "⚠️ Không thể lưu vào cloud: ${e.message}",
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
     }
 
     private fun getTotalCalorieAdvice(totalCalories: Int): String {

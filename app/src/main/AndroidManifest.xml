@@ -81,6 +81,21 @@
             android:exported="false"
             android:label="Quét Calo"
             android:theme="@style/Theme.KeepYFitness" />
+        <activity
+            android:name=".UserProfileActivity"
+            android:exported="false"
+            android:label="Hồ sơ người dùng"
+            android:theme="@style/Theme.KeepYFitness" />
+        <activity
+            android:name=".GoalSettingActivity"
+            android:exported="false"
+            android:label="Thiết lập mục tiêu"
+            android:theme="@style/Theme.KeepYFitness" />
+        <activity
+            android:name=".NotificationSettingsActivity"
+            android:exported="false"
+            android:label="Cài đặt thông báo"
+            android:theme="@style/Theme.KeepYFitness" />
 
         <provider
             android:name="androidx.core.content.FileProvider"

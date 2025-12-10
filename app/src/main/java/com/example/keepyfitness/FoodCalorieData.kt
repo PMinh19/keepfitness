@@ -1,35 +1,42 @@
 package com.example.keepyfitness
 
 object FoodCalorieData {
-    // Dữ liệu calo cho 15 loại thực phẩm từ Food.AI model (calo/100g hoặc 1 serving)
-    private val calorieMap = mapOf(
-        "Bread" to 265,
-        "Pancake" to 227,
-        "Waffle" to 291,
-        "Bagel" to 257,
-        "Muffin" to 377,
-        "Doughnut" to 452,
-        "Hamburger" to 295,
-        "Pizza" to 266,
-        "Sandwich" to 250,
-        "Hot dog" to 290,
-        "French fries" to 312,
-        "Apple" to 52,
-        "Orange" to 47,
-        "Banana" to 89,
-        "Grape" to 69
+    // Dữ liệu calo cho 15 loại thực phẩm từ Food.AI model (calo/100g)
+    private val caloriePer100gMap = mapOf(
+        "Bread" to 2.65,      // 265 kcal/100g
+        "Pancake" to 2.27,    // 227 kcal/100g
+        "Waffle" to 2.91,     // 291 kcal/100g
+        "Bagel" to 2.57,      // 257 kcal/100g
+        "Muffin" to 3.77,     // 377 kcal/100g
+        "Doughnut" to 4.52,   // 452 kcal/100g
+        "Hamburger" to 2.95,  // 295 kcal/100g
+        "Pizza" to 2.66,      // 266 kcal/100g
+        "Sandwich" to 2.50,   // 250 kcal/100g
+        "Hot dog" to 2.90,    // 290 kcal/100g
+        "French fries" to 3.12, // 312 kcal/100g
+        "Apple" to 0.52,      // 52 kcal/100g
+        "Orange" to 0.47,     // 47 kcal/100g
+        "Banana" to 0.89,     // 89 kcal/100g
+        "Grape" to 0.69       // 69 kcal/100g
     )
 
-    fun getCalories(foodName: String): Int {
-        return calorieMap[foodName] ?: 200 // mặc định 200 nếu không tìm thấy
+    fun getCaloriesPerGram(foodName: String): Double {
+        return caloriePer100gMap[foodName] ?: 2.0 // mặc định 2.0 kcal/g nếu không tìm thấy
     }
 
-    fun getNutritionalInfo(foodName: String): String {
-        val calories = getCalories(foodName)
+    fun getCalories(foodName: String, grams: Int): Int {
+        val caloriesPerGram = getCaloriesPerGram(foodName)
+        return (caloriesPerGram * grams).toInt()
+    }
+
+    fun getNutritionalInfo(foodName: String, grams: Int): String {
+        val calories = getCalories(foodName, grams)
+        val caloriesPerGram = getCaloriesPerGram(foodName)
 
         return """
             🍽️ Món ăn: $foodName
-            🔥 Calo: ~$calories kcal/phần
+            ⚖️ Khối lượng: ${grams}g
+            🔥 Calo: ~$calories kcal
             
             💡 Gợi ý: ${getAdvice(calories)}
         """.trimIndent()
@@ -37,7 +44,7 @@ object FoodCalorieData {
 
     private fun getAdvice(calories: Int): String {
         return when {
-            calories < 100 -> "Món ăn rất nhẹ, giàu vitamin và chất xơ. Tốt cho sức khỏe!"
+            calories < 100 -> "Món ăn nhẹ, giàu vitamin và chất xơ. Tốt cho sức khỏe!"
             calories < 250 -> "Lượng calo vừa phải, tốt cho bữa ăn cân đối."
             calories < 400 -> "Lượng calo cao, nên kết hợp với rau xanh và vận động."
             else -> "Món ăn nhiều calo, nên ăn vừa phải và tăng cường tập luyện."

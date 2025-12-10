@@ -75,6 +75,12 @@ dependencies {
     implementation ("com.google.firebase:firebase-auth-ktx")
     implementation ("com.google.firebase:firebase-firestore-ktx")
 
+    // Firebase Messaging
+    implementation("com.google.firebase:firebase-messaging-ktx")
+
+    // WorkManager
+    implementation("androidx.work:work-runtime-ktx:2.9.0")
+
     // ML Kit
     implementation("com.google.mlkit:pose-detection:18.0.0-beta4")
     implementation("com.google.mlkit:pose-detection-accurate:18.0.0-beta4")
