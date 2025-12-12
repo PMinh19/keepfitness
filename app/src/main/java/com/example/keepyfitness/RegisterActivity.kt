@@ -5,9 +5,11 @@ import android.os.Bundle
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
+import com.google.firebase.auth.FirebaseAuthUserCollisionException
+import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
-import com.google.firebase.firestore.DocumentSnapshot
 
 class RegisterActivity : AppCompatActivity() {
 
@@ -38,6 +40,18 @@ class RegisterActivity : AppCompatActivity() {
                 return@setOnClickListener
             }
 
+            // Validate email format
+            if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+                Toast.makeText(this, "Email không hợp lệ.", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            // Validate password strength
+            if (password.length < 8 || !password.matches(Regex(".*[A-Z].*")) || !password.matches(Regex(".*[a-z].*")) || !password.matches(Regex(".*\\d.*"))) {
+                Toast.makeText(this, "Mật khẩu phải có ít nhất 8 ký tự, bao gồm chữ hoa, chữ thường và số.", Toast.LENGTH_LONG).show()
+                return@setOnClickListener
+            }
+
             if (password != confirmPassword) {
                 Toast.makeText(this, "Mật khẩu không khớp.", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
@@ -63,7 +77,13 @@ class RegisterActivity : AppCompatActivity() {
                         startActivity(intent)
                         finish()
                     } else {
-                        Toast.makeText(this, "Lỗi: ${task.exception?.message}", Toast.LENGTH_LONG).show()
+                        val exception = task.exception
+                        val message = when (exception) {
+                            is FirebaseAuthUserCollisionException -> "Email đã được đăng ký."
+                            is FirebaseAuthInvalidCredentialsException -> "Email không hợp lệ."
+                            else -> "Đăng ký thất bại. Vui lòng thử lại."
+                        }
+                        Toast.makeText(this, message, Toast.LENGTH_LONG).show()
                     }
                 }
         }
@@ -85,11 +105,11 @@ class RegisterActivity : AppCompatActivity() {
                 )
                 userRef.set(userData, SetOptions.merge()).addOnSuccessListener {
                     Toast.makeText(this, "Đã tạo CSDL user", Toast.LENGTH_SHORT).show()
-                }.addOnFailureListener { e ->
+                }.addOnFailureListener { e: Exception ->
                     Toast.makeText(this, "Lỗi tạo CSDL: ${e.message}", Toast.LENGTH_LONG).show()
                 }
             }
-        }.addOnFailureListener { e ->
+        }.addOnFailureListener { e: Exception ->
             Toast.makeText(this, "Lỗi kiểm tra CSDL: ${e.message}", Toast.LENGTH_LONG).show()
         }
     }

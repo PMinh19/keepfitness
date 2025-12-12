@@ -12,10 +12,9 @@ import com.example.keepyfitness.Model.PersonalRecord
 import com.google.android.material.button.MaterialButton
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.example.keepyfitness.utils.SecurePreferences
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
-import java.text.SimpleDateFormat
-import java.util.*
 
 class WorkoutResultsActivity : AppCompatActivity() {
 
@@ -26,6 +25,7 @@ class WorkoutResultsActivity : AppCompatActivity() {
     private var caloriesBurned: Double = 0.0
     private lateinit var auth: FirebaseAuth
     private lateinit var db: FirebaseFirestore
+    private lateinit var securePrefs: SecurePreferences
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -34,6 +34,7 @@ class WorkoutResultsActivity : AppCompatActivity() {
         // Initialize Firebase
         auth = FirebaseAuth.getInstance()
         db = FirebaseFirestore.getInstance()
+        securePrefs = SecurePreferences(this)
 
         // Get data from intent
         exerciseDataModel = intent.getSerializableExtra("exercise_data") as ExerciseDataModel
@@ -147,17 +148,16 @@ class WorkoutResultsActivity : AppCompatActivity() {
         )
 
         // Lưu vào SharedPreferences (giữ nguyên để tương thích)
-        val prefs = getSharedPreferences("workout_history", MODE_PRIVATE)
         val gson = Gson()
         val type = object : TypeToken<MutableList<WorkoutHistory>>() {}.type
-        val historyJson = prefs.getString("history_list", null)
+        val historyJson = securePrefs.getString("history_list", null)
         val historyList: MutableList<WorkoutHistory> = if (historyJson != null) {
             gson.fromJson(historyJson, type)
         } else {
             mutableListOf()
         }
         historyList.add(workoutHistory)
-        prefs.edit().putString("history_list", gson.toJson(historyList)).apply()
+        securePrefs.putString("history_list", gson.toJson(historyList))
 
         // Lưu vào Firestore
         val user = auth.currentUser

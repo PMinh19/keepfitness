@@ -108,6 +108,18 @@ class HomeScreen : AppCompatActivity() {
             startActivity(Intent(this, UserProfileActivity::class.java))
         }
 
+        // Nút thiết lập mục tiêu
+        val btnGoalSetting = findViewById<LinearLayout>(R.id.btnGoalSetting)
+        btnGoalSetting.setOnClickListener {
+            startActivity(Intent(this, GoalSettingActivity::class.java))
+        }
+
+        // Nút cài đặt thông báo
+        val btnNotificationSettings = findViewById<LinearLayout>(R.id.btnNotificationSettings)
+        btnNotificationSettings.setOnClickListener {
+            startActivity(Intent(this, NotificationSettingsActivity::class.java))
+        }
+
         // Logout button
         val logoutButton = findViewById<CardView>(R.id.logoutButton)
         logoutButton.setOnClickListener {

@@ -7,13 +7,14 @@ import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.work.Worker
 import androidx.work.WorkerParameters
+import com.example.keepyfitness.utils.SecurePreferences
 
 class ReminderWorker(context: Context, workerParams: WorkerParameters) : Worker(context, workerParams) {
 
     override fun doWork(): Result {
-        val prefs = applicationContext.getSharedPreferences("reminder_settings", Context.MODE_PRIVATE)
-        val workoutEnabled = prefs.getBoolean("workout_reminder", false)
-        val waterEnabled = prefs.getBoolean("water_reminder", false)
+        val securePrefs = SecurePreferences(applicationContext)
+        val workoutEnabled = securePrefs.getBoolean("workout_reminder", false)
+        val waterEnabled = securePrefs.getBoolean("water_reminder", false)
 
         if (workoutEnabled) {
             showNotification("Nhắc nhở tập luyện", "Đến giờ tập luyện rồi!")

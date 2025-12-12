@@ -2,15 +2,17 @@ package com.example.keepyfitness
 
 import android.content.Intent
 import android.os.Bundle
+import android.widget.EditText
+import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import com.google.android.material.button.MaterialButton
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
+import com.google.firebase.auth.FirebaseAuthInvalidUserException
+import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
-import android.widget.EditText
-import com.google.android.material.button.MaterialButton
-import android.widget.TextView
-import com.google.firebase.firestore.DocumentSnapshot
 
 class LoginActivity : ComponentActivity() {
 
@@ -52,6 +54,12 @@ class LoginActivity : ComponentActivity() {
                 return@setOnClickListener
             }
 
+            // Validate email format
+            if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+                Toast.makeText(this, "Email không hợp lệ.", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
             // Disable button during authentication
             loginButton.isEnabled = false
 
@@ -77,7 +85,13 @@ class LoginActivity : ComponentActivity() {
                             auth.signOut()
                         }
                     } else {
-                        Toast.makeText(this, "Lỗi: ${task.exception?.message}", Toast.LENGTH_LONG).show()
+                        val exception = task.exception
+                        val message = when (exception) {
+                            is FirebaseAuthInvalidUserException -> "Tài khoản không tồn tại."
+                            is FirebaseAuthInvalidCredentialsException -> "Email hoặc mật khẩu không đúng."
+                            else -> "Đăng nhập thất bại. Kiểm tra email và mật khẩu."
+                        }
+                        Toast.makeText(this, message, Toast.LENGTH_LONG).show()
                     }
                 }
         }
@@ -101,11 +115,11 @@ class LoginActivity : ComponentActivity() {
                 )
                 userRef.set(userData, SetOptions.merge()).addOnSuccessListener {
                     Toast.makeText(this, "Đã tạo CSDL user", Toast.LENGTH_SHORT).show()
-                }.addOnFailureListener { e ->
+                }.addOnFailureListener { e: Exception ->
                     Toast.makeText(this, "Lỗi tạo CSDL: ${e.message}", Toast.LENGTH_LONG).show()
                 }
             }
-        }.addOnFailureListener { e ->
+        }.addOnFailureListener { e: Exception ->
             Toast.makeText(this, "Lỗi kiểm tra CSDL: ${e.message}", Toast.LENGTH_LONG).show()
         }
     }

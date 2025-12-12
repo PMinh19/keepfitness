@@ -100,6 +100,9 @@ dependencies {
     // Material Design
     implementation("com.google.android.material:material:1.12.0")
 
+    // Security
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
+
     // CameraX
     implementation("androidx.camera:camera-core:$camerax_version")
     implementation("androidx.camera:camera-camera2:$camerax_version")
