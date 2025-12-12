@@ -247,61 +247,73 @@ class WeatherHelper(private val context: Context) {
 
                             Log.d(TAG, "Weather fetched - Temp: $temp°C, Code: $weatherCode, Wind: $windSpeed km/h")
 
-                            // Map weather code to condition
-                            val weatherCondition = getWeatherCondition(weatherCode)
+                            // Fetch air quality data
+                            fetchAirQuality(lat, lon) { airQualityInfo ->
+                                // Map weather code to condition
+                                val weatherCondition = getWeatherCondition(weatherCode)
 
-                            // Reverse geocoding để lấy tên thành phố (optional)
-                            val cityName = getCityName(lat, lon)
+                                // Reverse geocoding để lấy tên thành phố (optional)
+                                val cityName = getCityName(lat, lon)
 
-                            // Thông tin độ chính xác
-                            val accuracyInfo = when {
-                                provider == "GPS" && accuracy <= 30f -> "📍 GPS chính xác cao"
-                                provider == "GPS" && accuracy <= 50f -> "📍 GPS vị trí tốt"
-                                provider == "GPS" && accuracy <= 100f -> "📍 GPS (±${accuracy.toInt()}m)"
-                                else -> "📍 Vị trí từ ${provider} (±${accuracy.toInt()}m)"
-                            }
+                                // Thông tin độ chính xác
+                                val accuracyInfo = when {
+                                    provider == "GPS" && accuracy <= 30f -> "📍 GPS chính xác cao"
+                                    provider == "GPS" && accuracy <= 50f -> "📍 GPS vị trí tốt"
+                                    provider == "GPS" && accuracy <= 100f -> "📍 GPS (±${accuracy.toInt()}m)"
+                                    else -> "📍 Vị trí từ ${provider} (±${accuracy.toInt()}m)"
+                                }
 
 
-                            // Tạo suggestion
-                            val suggestion = when {
-                                weatherCode in listOf(51, 53, 55, 61, 63, 65, 80, 81, 82, 95, 96, 99) ->
-                                    "🌧️ $cityName - Trời mưa (${temp.toInt()}°C)\n" +
-                                            "$accuracyInfo\n\n" +
-                                            "→ Tập trong nhà: Chống đẩy, Squat, Downward Dog Yoga"
+                                // Tạo suggestion với thông tin ô nhiễm không khí
+                                val suggestion = when {
+                                    weatherCode in listOf(51, 53, 55, 61, 63, 65, 80, 81, 82, 95, 96, 99) ->
+                                        "🌧️ $cityName - Trời mưa (${temp.toInt()}°C)\n" +
+                                                "$airQualityInfo\n$accuracyInfo\n\n" +
+                                                "→ Tập trong nhà: Chống đẩy, Squat, Downward Dog Yoga"
 
-                                temp < 15 ->
-                                    "🥶 $cityName - Trời lạnh (${temp.toInt()}°C)\n" +
-                                            "$accuracyInfo\n\n" +
-                                            "→ Khởi động kỹ, tập trong nhà: Chống đẩy, Squat, Đứng một chân"
+                                    temp < 15 ->
+                                        "🥶 $cityName - Trời lạnh (${temp.toInt()}°C)\n" +
+                                                "$airQualityInfo\n$accuracyInfo\n\n" +
+                                                "→ Khởi động kỹ, tập trong nhà: Chống đẩy, Squat, Đứng một chân"
 
-                                temp in 15.0..25.0 && weatherCode == 0 ->
-                                    "☀️ $cityName - Thời tiết đẹp (${temp.toInt()}°C)\n" +
-                                            "$accuracyInfo\n\n" +
+                                    temp in 15.0..25.0 && weatherCode == 0 -> {
+                                        val airAdvice = if (airQualityInfo.contains("Tốt") || airQualityInfo.contains("Trung bình")) {
                                             "→ Ra ngoài tập: Dang tay chân cardio, Đứng một chân"
+                                        } else {
+                                            "→ Tập trong nhà (không khí ngoài trời không tốt): Chống đẩy, Squat"
+                                        }
+                                        "☀️ $cityName - Thời tiết đẹp (${temp.toInt()}°C)\n" +
+                                                "$airQualityInfo\n$accuracyInfo\n\n$airAdvice"
+                                    }
 
-                                temp in 15.0..25.0 && weatherCode in listOf(1, 2, 3) ->
-                                    "⛅ $cityName - Trời râm mát (${temp.toInt()}°C)\n" +
-                                            "$accuracyInfo\n\n" +
+                                    temp in 15.0..25.0 && weatherCode in listOf(1, 2, 3) -> {
+                                        val airAdvice = if (airQualityInfo.contains("Tốt") || airQualityInfo.contains("Trung bình")) {
                                             "→ Tập ngoài trời: Dang tay chân cardio, Downward Dog Yoga"
+                                        } else {
+                                            "→ Tập trong nhà (không khí ngoài trời không tốt): Chống đẩy, Squat"
+                                        }
+                                        "⛅ $cityName - Trời râm mát (${temp.toInt()}°C)\n" +
+                                                "$airQualityInfo\n$accuracyInfo\n\n$airAdvice"
+                                    }
 
-                                temp > 30 ->
-                                    "🥵 $cityName - Trời nóng (${temp.toInt()}°C)\n" +
-                                            "$accuracyInfo\n\n" +
-                                            "→ Tập trong nhà, uống đủ nước: Chống đẩy, Squat, Downward Dog Yoga"
+                                    temp > 30 ->
+                                        "🥵 $cityName - Trời nóng (${temp.toInt()}°C)\n" +
+                                                "$airQualityInfo\n$accuracyInfo\n\n" +
+                                                "→ Tập trong nhà, uống đủ nước: Chống đẩy, Squat, Downward Dog Yoga"
 
-                                windSpeed > 30 ->
-                                    "💨 $cityName - Gió mạnh (${temp.toInt()}°C, ${windSpeed.toInt()} km/h)\n" +
-                                            "$accuracyInfo\n\n" +
-                                            "→ Tập trong nhà an toàn: Chống đẩy, Squat, Đứng một chân"
+                                    windSpeed > 30 ->
+                                        "💨 $cityName - Gió mạnh (${temp.toInt()}°C, ${windSpeed.toInt()} km/h)\n" +
+                                                "$airQualityInfo\n$accuracyInfo\n\n" +
+                                                "→ Tập trong nhà an toàn: Chống đẩy, Squat, Đứng một chân"
 
-                                else ->
-                                    "⚡ $cityName - Thời tiết thất thường (${temp.toInt()}°C)\n" +
-                                            "$accuracyInfo\n\n" +
-                                            "→ Ưu tiên tập trong nhà: Chống đẩy, Downward Dog Yoga, Đứng một chân"
+                                    else ->
+                                        "⚡ $cityName - Thời tiết thất thường (${temp.toInt()}°C)\n" +
+                                                "$airQualityInfo\n$accuracyInfo\n\n" +
+                                                "→ Ưu tiên tập trong nhà: Chống đẩy, Downward Dog Yoga, Đứng một chân"
+                                }
+
+                                callback(suggestion)
                             }
-
-
-                            callback(suggestion)
 
                         } catch (e: Exception) {
                             Log.e(TAG, "JSON parsing error", e)
@@ -313,6 +325,134 @@ class WeatherHelper(private val context: Context) {
                 }
             }
         })
+    }
+
+    private fun fetchAirQuality(lat: Double, lon: Double, callback: (String) -> Unit) {
+        // OpenWeatherMap Air Pollution API - FREE tier available
+        // Note: Replace YOUR_API_KEY with actual key if needed, but trying without first
+        val url = "https://api.openweathermap.org/data/2.5/air_pollution?lat=$lat&lon=$lon&appid=demo"
+
+        Log.d(TAG, "Fetching air quality from OpenWeatherMap - Lat: $lat, Lon: $lon")
+
+        val request = Request.Builder().url(url).build()
+        client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                Log.e(TAG, "Air Quality API failed", e)
+                // Fallback to WAQI if OpenWeatherMap fails
+                fetchAirQualityWAQI(lat, lon, callback)
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                val data = response.body?.string()
+                handler.post {
+                    if (data != null) {
+                        try {
+                            val json = JSONObject(data)
+                            if (json.has("list") && json.getJSONArray("list").length() > 0) {
+                                val airData = json.getJSONArray("list").getJSONObject(0)
+                                val components = airData.getJSONObject("components")
+
+                                // Calculate AQI from PM2.5 (most common pollutant)
+                                val pm25 = components.optDouble("pm2_5", 0.0)
+                                val aqi = calculateAQIFromPM25(pm25)
+
+                                // Get air quality category and color
+                                val (category, emoji, advice) = getAirQualityInfo(aqi)
+
+                                val airQualityInfo = "🌫️ Chất lượng không khí: $aqi ($category $emoji)"
+                                Log.d(TAG, "Air quality fetched - PM2.5: $pm25, AQI: $aqi ($category)")
+
+                                callback(airQualityInfo)
+                            } else {
+                                // Fallback to WAQI
+                                fetchAirQualityWAQI(lat, lon, callback)
+                            }
+                        } catch (e: Exception) {
+                            Log.e(TAG, "OpenWeatherMap air quality parsing error", e)
+                            // Fallback to WAQI
+                            fetchAirQualityWAQI(lat, lon, callback)
+                        }
+                    } else {
+                        // Fallback to WAQI
+                        fetchAirQualityWAQI(lat, lon, callback)
+                    }
+                }
+            }
+        })
+    }
+
+    private fun fetchAirQualityWAQI(lat: Double, lon: Double, callback: (String) -> Unit) {
+        // WAQI API as fallback
+        val url = "https://api.waqi.info/feed/geo:$lat;$lon/?token=demo"
+
+        Log.d(TAG, "Fetching air quality from WAQI (fallback) - Lat: $lat, Lon: $lon")
+
+        val request = Request.Builder().url(url).build()
+        client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                Log.e(TAG, "WAQI Air Quality API failed", e)
+                handler.post {
+                    callback("🌫️ Không lấy được dữ liệu ô nhiễm không khí")
+                }
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                val data = response.body?.string()
+                handler.post {
+                    if (data != null) {
+                        try {
+                            val json = JSONObject(data)
+                            val status = json.getString("status")
+
+                            if (status == "ok") {
+                                val dataObj = json.getJSONObject("data")
+                                val aqi = dataObj.getInt("aqi")
+
+                                // Get air quality category and color
+                                val (category, emoji, advice) = getAirQualityInfo(aqi)
+
+                                val airQualityInfo = "🌫️ Chất lượng không khí: $aqi ($category $emoji)"
+                                Log.d(TAG, "WAQI Air quality fetched - AQI: $aqi ($category)")
+
+                                callback(airQualityInfo)
+                            } else {
+                                callback("🌫️ Không có dữ liệu ô nhiễm không khí")
+                            }
+                        } catch (e: Exception) {
+                            Log.e(TAG, "WAQI air quality JSON parsing error", e)
+                            callback("🌫️ Lỗi phân tích dữ liệu ô nhiễm")
+                        }
+                    } else {
+                        callback("🌫️ Không nhận được dữ liệu ô nhiễm")
+                    }
+                }
+            }
+        })
+    }
+
+    private fun calculateAQIFromPM25(pm25: Double): Int {
+        // EPA AQI calculation for PM2.5
+        return when {
+            pm25 <= 12.0 -> ((pm25 / 12.0) * 50).toInt() + 1
+            pm25 <= 35.4 -> (((pm25 - 12.0) / 23.4) * 49 + 51).toInt()
+            pm25 <= 55.4 -> (((pm25 - 35.4) / 20.0) * 49 + 101).toInt()
+            pm25 <= 150.4 -> (((pm25 - 55.4) / 95.0) * 49 + 151).toInt()
+            pm25 <= 250.4 -> (((pm25 - 150.4) / 100.0) * 49 + 201).toInt()
+            pm25 <= 350.4 -> (((pm25 - 250.4) / 100.0) * 49 + 301).toInt()
+            pm25 <= 500.4 -> (((pm25 - 350.4) / 150.0) * 49 + 401).toInt()
+            else -> 500
+        }
+    }
+
+    private fun getAirQualityInfo(aqi: Int): Triple<String, String, String> {
+        return when {
+            aqi <= 50 -> Triple("Tốt", "🟢", "Không khí trong lành, an toàn tập thể dục ngoài trời")
+            aqi <= 100 -> Triple("Trung bình", "🟡", "Không khí chấp nhận được, tập thể dục nhẹ ngoài trời")
+            aqi <= 150 -> Triple("Không tốt cho nhóm nhạy cảm", "🟠", "Giảm hoạt động ngoài trời nếu có vấn đề hô hấp")
+            aqi <= 200 -> Triple("Không tốt", "🔴", "Hạn chế tập thể dục ngoài trời, đeo khẩu trang")
+            aqi <= 300 -> Triple("Rất không tốt", "🟣", "Tránh tập thể dục ngoài trời, ở trong nhà")
+            else -> Triple("Nguy hiểm", "🟤", "CẬP BÁCH: Ở trong nhà, đeo khẩu trang N95")
+        }
     }
 
     private fun getWeatherCondition(code: Int): String {
