@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <item android:title="Trang chủ">
+        <menu>
+            <item
+                android:id="@+id/nav_scan_calo"
+                android:title="Quét calo" />
+
+            <item
+                android:id="@+id/nav_heart_rate"
+                android:title="Đo nhịp tim" />
+
+            <item
+                android:id="@+id/nav_schedule"
+                android:title="Lịch trình tập luyện" />
+
+            <item
+                android:id="@+id/nav_start_workout"
+                android:title="Bắt đầu luyện tập" />
+
+            <item
+                android:id="@+id/nav_history"
+                android:title="Lịch sử tiến độ" />
+
+            <item
+                android:id="@+id/nav_heart_history"
+                android:icon="@drawable/heart"
+                android:title="Lịch sử nhịp tim" />
+        </menu>
+    </item>
+
+    <item android:title="Người dùng">
+        <menu>
+            <item
+                android:id="@+id/nav_profile"
+                android:title="Hồ sơ người dùng" />
+
+            <item
+                android:id="@+id/nav_biometric"
+                android:title="Cài đặt vân tay" />
+        </menu>
+    </item>
+
+</menu>

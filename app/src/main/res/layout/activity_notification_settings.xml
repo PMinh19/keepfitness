@@ -8,7 +8,7 @@
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Cài đặt thông báo nhắc nhở"
+        android:text="Cài đặt vân tay"
         android:textSize="24sp"
         android:textStyle="bold"
         android:gravity="center"
@@ -17,23 +17,11 @@
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Nhắc nhở tập luyện:"
+        android:text="Kích hoạt đăng nhập bằng vân tay:"
         android:textSize="16sp" />
 
     <Switch
-        android:id="@+id/switchWorkoutReminder"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content" />
-
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Nhắc nhở uống nước:"
-        android:textSize="16sp"
-        android:layout_marginTop="16dp" />
-
-    <Switch
-        android:id="@+id/switchWaterReminder"
+        android:id="@+id/switchBiometric"
         android:layout_width="match_parent"
         android:layout_height="wrap_content" />
 

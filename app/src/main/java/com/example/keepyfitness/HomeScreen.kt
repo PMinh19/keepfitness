@@ -7,6 +7,7 @@ import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
+import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
@@ -19,8 +20,11 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.security.crypto.EncryptedSharedPreferences
+import androidx.security.crypto.MasterKey
 import com.example.keepyfitness.Model.HeartRateData
 import com.example.keepyfitness.utils.WeatherHelper
+import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import java.util.*
@@ -50,6 +54,25 @@ class HomeScreen : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContentView(R.layout.activity_home_screen)
+
+        // Setup Bottom Navigation
+        val bottomNav = findViewById<com.google.android.material.bottomnavigation.BottomNavigationView>(R.id.bottom_navigation)
+        bottomNav.selectedItemId = R.id.nav_home
+
+        bottomNav.setOnItemSelectedListener { item ->
+            when (item.itemId) {
+                R.id.nav_home -> {
+                    // Already on home, do nothing or refresh
+                    true
+                }
+                R.id.nav_user -> {
+                    // Go to User Activity
+                    startActivity(Intent(this, UserActivity::class.java))
+                    true
+                }
+                else -> false
+            }
+        }
 
         // Khởi tạo Firebase
         auth = FirebaseAuth.getInstance()
@@ -100,24 +123,6 @@ class HomeScreen : AppCompatActivity() {
         val btnViewHistory = findViewById<LinearLayout>(R.id.btnViewHistory)
         btnViewHistory.setOnClickListener {
             startActivity(Intent(this, WorkoutHistoryActivity::class.java))
-        }
-
-        // Nút hồ sơ người dùng
-        val btnUserProfile = findViewById<LinearLayout>(R.id.btnUserProfile)
-        btnUserProfile.setOnClickListener {
-            startActivity(Intent(this, UserProfileActivity::class.java))
-        }
-
-        // Nút thiết lập mục tiêu
-        val btnGoalSetting = findViewById<LinearLayout>(R.id.btnGoalSetting)
-        btnGoalSetting.setOnClickListener {
-            startActivity(Intent(this, GoalSettingActivity::class.java))
-        }
-
-        // Nút cài đặt thông báo
-        val btnNotificationSettings = findViewById<LinearLayout>(R.id.btnNotificationSettings)
-        btnNotificationSettings.setOnClickListener {
-            startActivity(Intent(this, NotificationSettingsActivity::class.java))
         }
 
         // Logout button
@@ -403,6 +408,16 @@ class HomeScreen : AppCompatActivity() {
             .setMessage("Bạn có chắc chắn muốn đăng xuất không?")
             .setPositiveButton("Có") { dialog, which ->
                 auth.signOut()
+                // Clear encrypted shared preferences on logout
+                val masterKeyAlias = MasterKey.Builder(this).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build()
+                val securePrefs = EncryptedSharedPreferences.create(
+                    this,
+                    "secure_prefs",
+                    masterKeyAlias,
+                    EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                    EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+                )
+                securePrefs.edit().clear().apply()
                 showCustomToast("Đã đăng xuất.")
                 startActivity(Intent(this, LoginActivity::class.java))
                 finish()

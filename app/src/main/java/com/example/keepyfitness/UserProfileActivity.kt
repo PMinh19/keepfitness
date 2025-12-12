@@ -121,4 +121,3 @@ class UserProfileActivity : AppCompatActivity() {
             }
     }
 }
-

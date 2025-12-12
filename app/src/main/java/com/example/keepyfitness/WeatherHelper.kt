@@ -219,7 +219,7 @@ class WeatherHelper(private val context: Context) {
     }
 
     private fun fetchWeather(lat: Double, lon: Double, accuracy: Float, provider: String, callback: (String) -> Unit) {
-        // Open-Meteo API - FREE, no API key needed
+        
         val url = "https://api.open-meteo.com/v1/forecast?latitude=$lat&longitude=$lon&current_weather=true&timezone=auto"
 
         Log.d(TAG, "Fetching weather from Open-Meteo - Lat: $lat, Lon: $lon")
