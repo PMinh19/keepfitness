@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Thiết lập mục tiêu hàng ngày"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        android:gravity="center"
+        android:layout_marginBottom="24dp" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Mục tiêu calo đốt (calo/ngày):"
+        android:textSize="16sp" />
+
+    <EditText
+        android:id="@+id/etCalorieGoal"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:inputType="numberDecimal"
+        android:hint="Nhập mục tiêu calo" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Mục tiêu bước chân (bước/ngày):"
+        android:textSize="16sp"
+        android:layout_marginTop="16dp" />
+
+    <EditText
+        android:id="@+id/etStepsGoal"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:inputType="number"
+        android:hint="Nhập mục tiêu bước chân" />
+
+    <Button
+        android:id="@+id/btnSaveGoals"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Lưu mục tiêu"
+        android:layout_marginTop="32dp" />
+
+</LinearLayout>

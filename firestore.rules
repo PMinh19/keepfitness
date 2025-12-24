@@ -1,0 +1,82 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAdmin() {
+      return request.auth != null &&
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Quyền cho collection users
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read, write, delete: if isAdmin();
+    }
+
+    // Quyền cho sub-collections của user
+    match /users/{userId}/healthMetrics/{metricId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read, write, delete: if isAdmin();
+    }
+
+    match /users/{userId}/workouts/{workoutId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read, write, delete: if isAdmin();
+    }
+
+    match /users/{userId}/schedules/{scheduleId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read, write, delete: if isAdmin();
+    }
+
+    match /users/{userId}/personalRecords/{recordId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read, write, delete: if isAdmin();
+    }
+
+    // ✅ THÊM MỚI: Quyền cho foodIntake (quét thức ăn)
+    match /users/{userId}/foodIntake/{dayId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read, write, delete: if isAdmin();
+    }
+
+    // ✅ THÊM MỚI: Quyền cho goals (mục tiêu)
+    match /users/{userId}/goals/{goalId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read, write, delete: if isAdmin();
+    }
+
+    // Quyền cho collectionGroup
+    match /{path=**}/healthMetrics/{metricId} {
+      allow read, write: if request.auth != null && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'user';
+      allow read, write, delete: if isAdmin();
+    }
+
+    match /{path=**}/workouts/{workoutId} {
+      allow read, write: if request.auth != null && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'user';
+      allow read, write, delete: if isAdmin();
+    }
+
+    match /{path=**}/schedules/{scheduleId} {
+      allow read, write: if request.auth != null && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'user';
+      allow read, write, delete: if isAdmin();
+    }
+
+    match /{path=**}/personalRecords/{recordId} {
+      allow read, write: if request.auth != null && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'user';
+      allow read, write, delete: if isAdmin();
+    }
+
+    // ✅ THÊM MỚI: CollectionGroup cho foodIntake
+    match /{path=**}/foodIntake/{dayId} {
+      allow read, write: if request.auth != null && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'user';
+      allow read, write, delete: if isAdmin();
+    }
+
+    // ✅ THÊM MỚI: CollectionGroup cho goals
+    match /{path=**}/goals/{goalId} {
+      allow read, write: if request.auth != null && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'user';
+      allow read, write, delete: if isAdmin();
+    }
+  }
+}

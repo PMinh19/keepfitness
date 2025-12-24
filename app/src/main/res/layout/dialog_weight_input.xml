@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <TextView
+        android:id="@+id/textViewFood"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="🍽️ Food Name"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="8dp" />
+
+    <TextView
+        android:id="@+id/textViewConfidence"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="📊 Độ tin cậy: 95%"
+        android:textSize="14sp"
+        android:layout_marginBottom="16dp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Nhập khối lượng (gram):"
+        android:textSize="16sp"
+        android:layout_marginBottom="8dp" />
+
+    <EditText
+        android:id="@+id/editTextWeight"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Ví dụ: 150"
+        android:inputType="number"
+        android:textSize="16sp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="💡 Calo sẽ được tính dựa trên calo/g của món ăn"
+        android:textSize="12sp"
+        android:textColor="#666666"
+        android:layout_marginTop="8dp" />
+
+</LinearLayout>
