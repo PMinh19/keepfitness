@@ -1,17 +1,22 @@
 package com.example.keepyfitness
 
+import android.app.AlertDialog
 import android.content.Context
+import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.BaseAdapter
+import android.widget.EditText
 import android.widget.ImageView
 import android.widget.ListView
 import android.widget.TextView
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.biometric.BiometricManager
+import androidx.biometric.BiometricPrompt
+import androidx.core.content.ContextCompat
 import com.example.keepyfitness.Model.PersonalRecord
 import com.example.keepyfitness.Model.WorkoutHistory
 import com.github.mikephil.charting.charts.BarChart
@@ -27,6 +32,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import java.util.concurrent.Executor
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -42,8 +48,93 @@ class WorkoutHistoryActivity : AppCompatActivity() {
     private lateinit var auth: FirebaseAuth
     private lateinit var db: FirebaseFirestore
 
+    // Biometric authentication variables
+    private lateinit var executor: Executor
+    private lateinit var biometricPrompt: BiometricPrompt
+    private lateinit var promptInfo: BiometricPrompt.PromptInfo
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Authenticate user before showing content
+        authenticateUser()
+    }
+
+    private fun authenticateUser() {
+        // Setup biometric authentication
+        executor = ContextCompat.getMainExecutor(this)
+        biometricPrompt = BiometricPrompt(this, executor, object : BiometricPrompt.AuthenticationCallback() {
+            override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+                super.onAuthenticationError(errorCode, errString)
+                // On error, prompt for password
+                promptPasswordAuthentication()
+            }
+
+            override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                super.onAuthenticationSucceeded(result)
+                // Proceed to show content
+                proceedToContent()
+            }
+
+            override fun onAuthenticationFailed() {
+                super.onAuthenticationFailed()
+                // On failed, prompt for password
+                promptPasswordAuthentication()
+            }
+        })
+
+        promptInfo = BiometricPrompt.PromptInfo.Builder()
+            .setTitle("Xác thực để xem lịch sử")
+            .setSubtitle("Sử dụng vân tay để truy cập")
+            .setNegativeButtonText("Dùng mật khẩu")
+            .build()
+
+        // Check if biometric is enabled and available
+        val biometricPrefs = getSharedPreferences("reminder_settings", MODE_PRIVATE)
+        val biometricEnabled = biometricPrefs.getBoolean("biometric_enabled", false)
+        val hasCredentials = hasBiometricCredentials()
+
+        if (biometricEnabled && hasCredentials && isBiometricSupported()) {
+            biometricPrompt.authenticate(promptInfo)
+        } else {
+            // If biometric not available, prompt for password
+            promptPasswordAuthentication()
+        }
+    }
+
+    private fun promptPasswordAuthentication() {
+        val passwordInput = EditText(this)
+        passwordInput.inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+        passwordInput.hint = "Nhập mật khẩu"
+
+        AlertDialog.Builder(this)
+            .setTitle("Xác thực mật khẩu")
+            .setMessage("Nhập mật khẩu để truy cập lịch sử tiến độ")
+            .setView(passwordInput)
+            .setPositiveButton("Xác nhận") { _, _ ->
+                val enteredPassword = passwordInput.text.toString().trim()
+                if (verifyPassword(enteredPassword)) {
+                    proceedToContent()
+                } else {
+                    android.widget.Toast.makeText(this, "Mật khẩu không đúng", android.widget.Toast.LENGTH_SHORT).show()
+                    finish() // Close activity if password wrong
+                }
+            }
+            .setNegativeButton("Hủy") { _, _ ->
+                finish() // Close activity if cancelled
+            }
+            .setCancelable(false)
+            .show()
+    }
+
+    private fun verifyPassword(password: String): Boolean {
+        val encryptedPrefs = getEncryptedPrefs()
+        val storedPassword = encryptedPrefs.getString("password", null)
+        return storedPassword == password && password.isNotEmpty()
+    }
+
+    private fun proceedToContent() {
+        // Now set content view and initialize
         setContentView(R.layout.activity_workout_history)
 
         // Initialize Firebase
@@ -361,6 +452,23 @@ class WorkoutHistoryActivity : AppCompatActivity() {
                 }
             }
         }
+    }
+
+    private fun getEncryptedPrefs() = getSharedPreferences("biometric_prefs", MODE_PRIVATE)
+
+    private fun hasBiometricCredentials(): Boolean {
+        return try {
+            val prefs = getEncryptedPrefs()
+            val password = prefs.getString("password", null)
+            !password.isNullOrEmpty()
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    private fun isBiometricSupported(): Boolean {
+        val biometricManager = BiometricManager.from(this)
+        return biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG) == BiometricManager.BIOMETRIC_SUCCESS
     }
 
     // Adapter for workout history

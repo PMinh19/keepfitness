@@ -409,17 +409,26 @@ class HomeScreen : AppCompatActivity() {
             .setPositiveButton("Có") { dialog, which ->
                 auth.signOut()
                 // Clear encrypted shared preferences on logout
-                val masterKeyAlias = MasterKey.Builder(this).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build()
-                val securePrefs = EncryptedSharedPreferences.create(
-                    this,
-                    "secure_prefs",
-                    masterKeyAlias,
-                    EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-                    EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-                )
-                securePrefs.edit().clear().apply()
+                try {
+                    val masterKeyAlias = MasterKey.Builder(this).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build()
+                    val securePrefs = EncryptedSharedPreferences.create(
+                        this,
+                        "secure_prefs",
+                        masterKeyAlias,
+                        EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                        EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+                    )
+                    securePrefs.edit().clear().apply()
+                } catch (e: Exception) {
+                    // If encrypted prefs fail, clear regular prefs as fallback
+                    getSharedPreferences("secure_prefs", MODE_PRIVATE).edit().clear().apply()
+                }
+                // Also clear biometric prefs
+                getSharedPreferences("biometric_prefs", MODE_PRIVATE).edit().clear().apply()
                 showCustomToast("Đã đăng xuất.")
-                startActivity(Intent(this, LoginActivity::class.java))
+                startActivity(Intent(this, LoginActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                })
                 finish()
             }
             .setNegativeButton("Không", null)

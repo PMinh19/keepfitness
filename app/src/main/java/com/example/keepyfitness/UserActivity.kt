@@ -68,18 +68,27 @@ class UserActivity : AppCompatActivity() {
             .setPositiveButton("Có") { dialog, which ->
                 com.google.firebase.auth.FirebaseAuth.getInstance().signOut()
                 // Clear encrypted shared preferences on logout
-                val masterKeyAlias = androidx.security.crypto.MasterKey.Builder(this).setKeyScheme(androidx.security.crypto.MasterKey.KeyScheme.AES256_GCM).build()
-                val securePrefs = androidx.security.crypto.EncryptedSharedPreferences.create(
-                    this,
-                    "secure_prefs",
-                    masterKeyAlias,
-                    androidx.security.crypto.EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-                    androidx.security.crypto.EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-                )
-                securePrefs.edit().clear().apply()
+                try {
+                    val masterKeyAlias = androidx.security.crypto.MasterKey.Builder(this).setKeyScheme(androidx.security.crypto.MasterKey.KeyScheme.AES256_GCM).build()
+                    val securePrefs = androidx.security.crypto.EncryptedSharedPreferences.create(
+                        this,
+                        "secure_prefs",
+                        masterKeyAlias,
+                        androidx.security.crypto.EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                        androidx.security.crypto.EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+                    )
+                    securePrefs.edit().clear().apply()
+                } catch (e: Exception) {
+                    // If encrypted prefs fail, clear regular prefs as fallback
+                    getSharedPreferences("secure_prefs", MODE_PRIVATE).edit().clear().apply()
+                }
+                // Also clear biometric prefs to prevent auto-login issues
+                getSharedPreferences("biometric_prefs", MODE_PRIVATE).edit().clear().apply()
                 // Keep biometric enabled for future logins
                 showCustomToast("Đã đăng xuất.")
-                startActivity(Intent(this, LoginActivity::class.java))
+                startActivity(Intent(this, LoginActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                })
                 finish()
             }
             .setNegativeButton("Không", null)

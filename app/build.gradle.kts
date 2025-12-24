@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    id("kotlin-kapt")
     id("com.google.gms.google-services")
 }
 
@@ -47,10 +48,14 @@ android {
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.14"
     }
-    aaptOptions{
+    androidResources {
         noCompress += "tflite"
     }
 }
+dependencies {
+    implementation("org.mindrot:jbcrypt:0.4")
+}
+
 dependencies {
     val camerax_version = "1.2.3"
 
@@ -132,4 +137,9 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
 
     implementation("androidx.biometric:biometric:1.1.0")
+
+    // Room
+    implementation("androidx.room:room-runtime:2.6.1")
+    implementation("androidx.room:room-ktx:2.6.1")
+    kapt("androidx.room:room-compiler:2.6.1")
 }

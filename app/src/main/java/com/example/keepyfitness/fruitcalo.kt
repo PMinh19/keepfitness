@@ -158,7 +158,7 @@ class FruitCalo : AppCompatActivity() {
             resultText.append("🎯 Phát hiện ${recognitions.size} món ăn:\n\n")
 
             weights.forEachIndexed { i, (foodName, grams) ->
-                val calories = FoodCalorieData.getCalories(foodName, grams)
+                val calories = FoodCalorieData.getCaloriesSync(foodName, grams)
                 totalCalories += calories
                 val recognition = recognitions.find { it.title == foodName }
                 val confidence = (recognition?.confidence ?: 0f * 100).toInt()
@@ -234,8 +234,8 @@ class FruitCalo : AppCompatActivity() {
 
                     // Hiển thị dialog nhập khối lượng
                     showWeightInputDialog(foodName, confidence) { grams ->
-                        val calories = FoodCalorieData.getCalories(foodName, grams)
-                        val nutritionalInfo = FoodCalorieData.getNutritionalInfo(foodName, grams)
+                        val calories = FoodCalorieData.getCaloriesSync(foodName, grams)
+                        val nutritionalInfo = FoodCalorieData.getNutritionalInfoSync(foodName, grams)
 
                         runOnUiThread {
                             txtResult.text = nutritionalInfo

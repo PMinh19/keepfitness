@@ -42,6 +42,7 @@ class HeartRateActivity : AppCompatActivity(), SurfaceHolder.Callback {
 
     // Heart rate detection variables
     private val redValuesList = mutableListOf<Double>()
+    private val rgbList = mutableListOf<Triple<Double, Double, Double>>()
     private var frameCount = 0
     private val maxFrames = 300 // 10 seconds at 30fps
     private val handler = Handler(Looper.getMainLooper())
@@ -215,8 +216,11 @@ class HeartRateActivity : AppCompatActivity(), SurfaceHolder.Callback {
             val size = camera.parameters.previewSize
             frameCount++
 
-            // Convert YUV to RGB and calculate average red value
-            val redValue = calculateAverageRedValue(data, size.width, size.height)
+            // Convert YUV to RGB and calculate average RGB values
+            val rgb = calculateAverageRGB(data, size.width, size.height)
+            val redValue = rgb.first // For backward compatibility
+
+            rgbList.add(rgb)
 
             // Validation giá trị red
             if (redValue > 0 && redValue < 255) {
@@ -300,6 +304,18 @@ class HeartRateActivity : AppCompatActivity(), SurfaceHolder.Callback {
         if (redValuesList.size < 60) return 0
 
         try {
+            // Kiểm tra ngón tay có trên camera không
+            if (!isFingerOnCamera()) {
+                Log.w(TAG, "Finger not detected on camera")
+                return 0
+            }
+
+            // Kiểm tra chất lượng dữ liệu toàn bộ đo đạc
+            if (!isDataQualityGood(redValuesList)) {
+                Log.w(TAG, "Poor data quality for entire measurement")
+                return 0
+            }
+
             val recentValues = redValuesList.takeLast(90)
 
             // Kiểm tra chất lượng dữ liệu đầu vào
@@ -311,7 +327,7 @@ class HeartRateActivity : AppCompatActivity(), SurfaceHolder.Callback {
             val filteredValues = applyAdvancedBandpassFilter(recentValues)
             val peaks = findPeaksImproved(filteredValues)
 
-            if (peaks.size >= 3) { // Cần ít nhất 3 peaks để tính toán chính xác
+            if (peaks.size >= 2) { // Cần ít nhất 2 peaks để tính toán
                 val intervals = mutableListOf<Double>()
                 for (i in 1 until peaks.size) {
                     intervals.add((peaks[i] - peaks[i - 1]).toDouble())
@@ -331,8 +347,8 @@ class HeartRateActivity : AppCompatActivity(), SurfaceHolder.Callback {
                 }
             }
 
-            // Fallback to TensorFlow nếu thuật toán cơ bản không hoạt động
-            return useTensorFlowForHeartRate(recentValues)
+            // Fallback to advanced algorithm nếu thuật toán cơ bản không hoạt động
+            return calculateHeartRateAdvanced(recentValues)
 
         } catch (e: Exception) {
             Log.e(TAG, "Error calculating heart rate", e)
@@ -348,7 +364,13 @@ class HeartRateActivity : AppCompatActivity(), SurfaceHolder.Callback {
         val hasValidRange = values.all { it > 0 && it < 255 }
         val hasEnoughData = values.size >= 30
 
-        return hasValidRange && hasEnoughData
+        // Thêm kiểm tra độ sáng trung bình để phát hiện ngón tay
+        val isBrightnessValid = mean in 60.0..255.0 // Ngón tay che camera sẽ làm giảm độ sáng, nhưng flash mạnh có thể làm sáng
+
+        // Bỏ kiểm tra biến động vì với flash, tín hiệu có thể ít biến động
+        // val hasEnoughVariation = variation >= 0.01
+
+        return hasValidRange && hasEnoughData && isBrightnessValid
     }
 
     private fun applyAdvancedBandpassFilter(values: List<Double>): List<Double> {
@@ -382,7 +404,7 @@ class HeartRateActivity : AppCompatActivity(), SurfaceHolder.Callback {
         val peaks = mutableListOf<Int>()
         val mean = values.average()
         val stdDev = values.map { kotlin.math.abs(it - mean) }.average()
-        val threshold = mean + stdDev * 0.5
+        val threshold = mean + stdDev * 0.1 // Giảm threshold để tìm peaks dễ hơn
 
         // Tìm peaks với điều kiện nghiêm ngặt hơn
         for (i in 2 until values.size - 2) {
@@ -397,8 +419,8 @@ class HeartRateActivity : AppCompatActivity(), SurfaceHolder.Callback {
                 current > prev1 && current > prev2 &&
                 current > next1 && current > next2) {
 
-                // Kiểm tra khoảng cách tối thiểu giữa các peaks (ít nhất 15 frames = 0.5s)
-                val minDistance = 15
+                // Kiểm tra khoảng cách tối thiểu giữa các peaks (ít nhất 10 frames = 0.33s)
+                val minDistance = 10
                 val isFarEnough = peaks.isEmpty() || (i - peaks.last()) >= minDistance
 
                 if (isFarEnough) {
@@ -479,7 +501,7 @@ class HeartRateActivity : AppCompatActivity(), SurfaceHolder.Callback {
         }
     }
 
-    // 🔹 Thuật toán nâng cao (fallback sau khi peak detection & model TensorFlow thất bại)
+
     private fun calculateHeartRateAdvanced(values: List<Double>): Int {
         if (values.size < 60) return 0 // cần ít nhất 60 samples (~2s dữ liệu)
 
@@ -788,6 +810,7 @@ class HeartRateActivity : AppCompatActivity(), SurfaceHolder.Callback {
             // Reset measurement variables
             startTime = System.currentTimeMillis()
             redValuesList.clear()
+            rgbList.clear()
             frameCount = 0
 
             // Set preview callback to start processing frames
@@ -800,5 +823,66 @@ class HeartRateActivity : AppCompatActivity(), SurfaceHolder.Callback {
             // Track sự kiện bắt đầu đo
             analytics.logEvent("start_heart_rate_measurement", Bundle())
         }
+    }
+
+    private fun calculateAverageRGB(data: ByteArray, width: Int, height: Int): Triple<Double, Double, Double> {
+        var rSum = 0.0
+        var gSum = 0.0
+        var bSum = 0.0
+        var pixelCount = 0
+
+        val centerX = width / 2
+        val centerY = height / 2
+        val sampleSize = Math.min(width, height) / 4
+
+        for (y in (centerY - sampleSize / 2) until (centerY + sampleSize / 2)) {
+            for (x in (centerX - sampleSize / 2) until (centerX + sampleSize / 2)) {
+                if (x >= 0 && x < width && y >= 0 && y < height) {
+                    val uvIndex = width * height + (x / 2) * 2 + (y / 2) * width
+                    val yIndex = y * width + x
+
+                    if (yIndex < data.size && uvIndex + 1 < data.size) {
+                        val Y = (data[yIndex].toInt() and 0xFF).toDouble()
+                        val V = (data[uvIndex].toInt() and 0xFF - 128).toDouble()  // V first
+                        val U = (data[uvIndex + 1].toInt() and 0xFF - 128).toDouble()  // U second
+
+                        // Convert YUV to RGB
+                        val R = Y + 1.402 * V
+                        val G = Y - 0.344136 * U - 0.714136 * V
+                        val B = Y + 1.772 * U
+
+                        // Clamp to 0-255
+                        val r = R.coerceIn(0.0, 255.0)
+                        val g = G.coerceIn(0.0, 255.0)
+                        val b = B.coerceIn(0.0, 255.0)
+
+                        rSum += r
+                        gSum += g
+                        bSum += b
+                        pixelCount++
+                    }
+                }
+            }
+        }
+
+        return if (pixelCount > 0) {
+            Triple(rSum / pixelCount, gSum / pixelCount, bSum / pixelCount)
+        } else {
+            Triple(0.0, 0.0, 0.0)
+        }
+    }
+
+    private fun isFingerOnCamera(): Boolean {
+        if (rgbList.size < 10) return false
+
+        val recentRgb = rgbList.takeLast(10)
+        val avgR = recentRgb.map { it.first }.average()
+        val avgG = recentRgb.map { it.second }.average()
+        val avgB = recentRgb.map { it.third }.average()
+
+        Log.d(TAG, "Finger detection: avgR=$avgR, avgG=$avgG, avgB=$avgB")
+
+        // Check if image is reddish (finger on camera) and not too bright white
+        return avgR > avgG + 40 && avgR > avgB + 10 && avgR > 150 && avgG < 10 && avgB < 250
     }
 }

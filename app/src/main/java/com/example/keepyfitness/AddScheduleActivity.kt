@@ -103,7 +103,7 @@ class AddScheduleActivity : AppCompatActivity() {
                 Toast.makeText(this, "Hãy chọn thời gian sau ít nhất 1 ngày kể từ bây giờ", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
-            val schedule = Schedule(selectedExercise, time, days, quantity)
+            val schedule = Schedule(exercise = selectedExercise, time = time, days = days, quantity = quantity)
             val user = auth.currentUser
             if (user != null) {
                 val scheduleId = if (editScheduleId != null) editScheduleId else "${selectedExercise}_${System.currentTimeMillis()}"
@@ -178,7 +178,11 @@ class AddScheduleActivity : AppCompatActivity() {
                 }
             }
 
-            val intent = Intent(this, WorkoutNotificationReceiver::class.java)
+            val intent = Intent(this, WorkoutNotificationReceiver::class.java).apply {
+                putExtra("day", day)
+                putExtra("hour", hour)
+                putExtra("minute", minute)
+            }
             val requestCode = (scheduleId.hashCode() + index)
             val pendingIntent = PendingIntent.getBroadcast(
                 this,
@@ -188,10 +192,9 @@ class AddScheduleActivity : AppCompatActivity() {
             )
 
             // Đặt lịch lặp lại hàng tuần
-            alarmManager.setRepeating(
+            alarmManager.setExactAndAllowWhileIdle(
                 AlarmManager.RTC_WAKEUP,
                 calendar.timeInMillis,
-                AlarmManager.INTERVAL_DAY * 7, // Lặp lại mỗi tuần
                 pendingIntent
             )
         }

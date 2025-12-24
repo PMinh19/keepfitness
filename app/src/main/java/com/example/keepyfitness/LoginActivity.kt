@@ -162,16 +162,12 @@ class LoginActivity : AppCompatActivity() {
                             // Reset failed attempts on successful login
                             resetFailedAttempts()
 
-                            // Update credentials if biometric is enabled (for password changes)
-                            val biometricPrefs = getSharedPreferences("reminder_settings", MODE_PRIVATE)
-                            val biometricEnabled = biometricPrefs.getBoolean("biometric_enabled", false)
-                            if (biometricEnabled) {
-                                val encryptedPrefs = getEncryptedPrefs()
-                                encryptedPrefs.edit().apply {
-                                    putString("email", email)
-                                    putString("password", password)
-                                    commit()
-                                }
+                            // Always store credentials for history access
+                            val encryptedPrefs = getEncryptedPrefs()
+                            encryptedPrefs.edit().apply {
+                                putString("email", email)
+                                putString("password", password)
+                                commit()
                             }
 
                             // Go directly to HomeScreen

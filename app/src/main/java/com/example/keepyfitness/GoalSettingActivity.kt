@@ -71,7 +71,7 @@ class GoalSettingActivity : AppCompatActivity() {
             return
         }
 
-        val goals = UserGoals(calorieGoal, stepsGoal)
+        val goals = UserGoals(dailyCalorieGoal = calorieGoal, dailyStepsGoal = stepsGoal)
         db.collection("users").document(user.uid).collection("goals").document("daily").set(goals)
             .addOnSuccessListener {
                 Toast.makeText(this, "Mục tiêu đã lưu", Toast.LENGTH_SHORT).show()

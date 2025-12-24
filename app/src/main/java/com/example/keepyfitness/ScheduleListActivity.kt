@@ -292,6 +292,7 @@ class ScheduleListActivity : AppCompatActivity() {
     }
 
     private fun createDaysRow(days: List<String>): LinearLayout {
+        val daysList = days  // Already a list
         return LinearLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -345,7 +346,7 @@ class ScheduleListActivity : AppCompatActivity() {
                 "#FFF9C4" to "#FBC02D"
             )
 
-            days.forEachIndexed { index, day ->
+            daysList.forEachIndexed { index, day ->
                 val colorPair = chipColors[index % chipColors.size]
                 val dayChip = createDayChip(
                     dayAbbreviations[day] ?: day,

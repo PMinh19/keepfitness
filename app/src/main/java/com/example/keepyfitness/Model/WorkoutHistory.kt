@@ -1,10 +1,13 @@
 package com.example.keepyfitness.Model
 
+import androidx.room.Entity
+import androidx.room.PrimaryKey
 import com.google.firebase.firestore.PropertyName
 import java.io.Serializable
 
+@Entity(tableName = "workout_history")
 data class WorkoutHistory(
-    @PropertyName("id") val id: String = System.currentTimeMillis().toString(),
+    @PrimaryKey @PropertyName("id") val id: String = System.currentTimeMillis().toString(),
     @PropertyName("exerciseId") val exerciseId: Int = 0,
     @PropertyName("exerciseName") val exerciseName: String = "",
     @PropertyName("count") val count: Int = 0,
@@ -15,7 +18,9 @@ data class WorkoutHistory(
     @PropertyName("isCompleted") val isCompleted: Boolean = false
 ) : Serializable
 
+@Entity(tableName = "personal_records")
 data class PersonalRecord(
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
     @PropertyName("exerciseId") val exerciseId: Int = 0,
     @PropertyName("exerciseName") val exerciseName: String = "",
     @PropertyName("maxCount") val maxCount: Int = 0,

@@ -11,6 +11,7 @@ import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
 import com.google.firebase.auth.FirebaseAuth
+import org.mindrot.jbcrypt.BCrypt
 
 class NotificationSettingsActivity : AppCompatActivity() {
 
@@ -171,12 +172,18 @@ class NotificationSettingsActivity : AppCompatActivity() {
                 Toast.makeText(this, "Không tìm thấy email người dùng", Toast.LENGTH_SHORT).show()
                 return
             }
+
+            // Hash mật khẩu bằng bcrypt trước khi lưu
+            val hashedPassword = BCrypt.hashpw(password, BCrypt.gensalt())
+
             val prefs = getEncryptedPrefs()
             prefs.edit().apply {
                 putString("email", email)
-                putString("password", password)
+                putString("password", hashedPassword) // Lưu password đã hash
                 commit()
             }
+
+            Toast.makeText(this, "Đã lưu thông tin đăng nhập an toàn", Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
             Toast.makeText(this, "Lỗi lưu credentials: ${e.message}", Toast.LENGTH_SHORT).show()
         }
